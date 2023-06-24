@@ -507,7 +507,7 @@ namespace jjyou {
 			/* @brief Compute view position (i.e. camera position).
 			 * @return the view position vector for `viewPosition` uniform variable in shaders
 			 */
-			glm::vec3 getviewPosition(void) {
+			glm::vec3 getViewPosition(void) {
 				return Object3DViewer<ID>::cameraView.getPos();
 			}
 			//@}

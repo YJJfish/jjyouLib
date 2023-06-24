@@ -7,6 +7,25 @@
 
 namespace jjyou {
 	namespace utils {
+
+		//Finally class
+		class Finally {
+		public:
+			using ActionType = std::function<void(void)>;
+		private:
+			ActionType action;
+		public:
+			template <class F>
+			Finally(F&& action) :
+				action(std::forward(action))
+			{}
+			Finally(const Finally&) = delete;
+			Finally(Finally&&) = delete;
+			~Finally(void) {
+				this->action();
+			}
+		};
+
 		//Clock class
 		class Clock {
 		public:

@@ -171,6 +171,93 @@ namespace jjyou {
 			}
 		};
 
+		class Sphere : public Object {
+		private:
+			GLuint VAO, VBO, EBO;
+			const jjyou::gl::Shader& shader;
+			size_t numSectors, numStacks;
+		public:
+			using Ptr = std::shared_ptr<Sphere>;
+			virtual constexpr std::string name(void) {
+				return "Sphere";
+			}
+			Sphere(
+				const jjyou::gl::Shader& shader,
+				size_t numSectors, size_t numStacks,
+				const std::array<GLfloat, 4> color = { {1.0f, 1.0f, 1.0f, 1.0f} }
+			) : Object(), shader(shader), numSectors(numSectors), numStacks(numStacks) {
+				std::vector<std::array<GLfloat, 3>> vertexBuffer((numSectors + 1) * (numStacks + 1));
+				for (int y = 0; y <= numStacks; y++) {
+					GLfloat pitch = std::numbers::pi_v<GLfloat> *((GLfloat)y / numStacks - 0.5);
+					for (int x = 0; x <= numSectors; x++) {
+						GLfloat yaw = 2 * std::numbers::pi_v<GLfloat> * x / numSectors;
+						vertexBuffer[y * (numSectors + 1) + x] = {{
+							cos(pitch) * cos(yaw),
+							sin(pitch),
+							cos(pitch) * sin(yaw)
+						} };
+					}
+				}
+				std::vector<unsigned int> indexBuffer(numSectors * numStacks * 6);
+				for (int y = 0; y < numStacks; y++) {
+					for (int x = 0; x < numSectors; x++) {
+						indexBuffer[(y * numSectors + x) * 6 + 0] = y * (numSectors + 1) + x;
+						indexBuffer[(y * numSectors + x) * 6 + 1] = (y + 1) * (numSectors + 1) + x;
+						indexBuffer[(y * numSectors + x) * 6 + 2] = y * (numSectors + 1) + x + 1;
+						indexBuffer[(y * numSectors + x) * 6 + 3] = y * (numSectors + 1) + x + 1;
+						indexBuffer[(y * numSectors + x) * 6 + 4] = (y + 1) * (numSectors + 1) + x;
+						indexBuffer[(y * numSectors + x) * 6 + 5] = (y + 1) * (numSectors + 1) + x + 1;
+					}
+				}
+				//generate buffers
+				glGenVertexArrays(1, &this->VAO);
+				glGenBuffers(1, &this->VBO);
+				glGenBuffers(1, &this->EBO);
+				//bind buffers
+				glBindVertexArray(this->VAO);
+				glBindBuffer(GL_ARRAY_BUFFER, this->VBO);
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->EBO);
+				//set input format
+				GLint positionLoc = glGetAttribLocation(this->shader.id(), "position");
+				if (positionLoc != -1) {
+					glVertexAttribPointer(positionLoc, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0);
+					glEnableVertexAttribArray(positionLoc);
+				}
+				GLint colorLoc = glGetAttribLocation(this->shader.id(), "color");
+				if (colorLoc != -1) {
+					glVertexAttrib4fv(colorLoc, &color[0]);
+				}
+				GLint normalLoc = glGetAttribLocation(this->shader.id(), "normal");
+				if (normalLoc != -1) {
+					glVertexAttribPointer(normalLoc, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0);
+					glEnableVertexAttribArray(normalLoc);
+				}
+				//set input data
+				glBufferData(GL_ARRAY_BUFFER, vertexBuffer.size() * sizeof(decltype(vertexBuffer)::value_type), vertexBuffer.data(), GL_STATIC_DRAW);
+				glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBuffer.size() * sizeof(decltype(indexBuffer)::value_type), indexBuffer.data(), GL_STATIC_DRAW);
+				//unbind
+				glBindVertexArray(0);
+			}
+			void setColor(const std::array<GLfloat, 4> color) {
+				glBindVertexArray(this->VAO);
+				GLint colorLoc = glGetAttribLocation(this->shader.id(), "color");
+				if (colorLoc != -1) {
+					glVertexAttrib4fv(colorLoc, &color[0]);
+				}
+				glBindVertexArray(0);
+			}
+			virtual ~Sphere(void) {
+				glDeleteVertexArrays(1, &this->VAO);
+				glDeleteBuffers(1, &this->VBO);
+				glDeleteBuffers(1, &this->EBO);
+			}
+			virtual void draw(void) {
+				this->shader.use();
+				glBindVertexArray(this->VAO);
+				glDrawElements(GL_TRIANGLES, this->numSectors * this->numStacks * 6, GL_UNSIGNED_INT, 0);
+			}
+		};
+
 		class PolygonMesh : public Object {
 		private:
 			GLuint VAO, VBO, edgeEBO, faceEBO, faceEdgeEBO;
@@ -289,6 +376,15 @@ namespace jjyou {
 			}
 			int getDrawMode(void) {
 				return this->drawMode;
+			}
+			void setColor(const std::array<GLfloat, 4> color) {
+				glBindVertexArray(this->VAO);
+				GLint colorLoc = glGetAttribLocation(this->shader.id(), "color");
+				if (colorLoc != -1) {
+					glDisableVertexAttribArray(colorLoc);
+					glVertexAttrib4fv(colorLoc, &color[0]);
+				}
+				glBindVertexArray(0);
 			}
 			void draw(int drawMode) {
 				this->drawMode = drawMode;

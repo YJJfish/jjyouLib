@@ -14,19 +14,6 @@
 #include <map>
 #include "../utils.hpp"
 
-/*======================================================================
- | Forward declaration
- ======================================================================*/
-namespace jjyou {
-	namespace io {
-		class IniFile;
-	}
-}
-inline std::ostream& operator<<(std::ostream& out, const jjyou::io::IniFile& iniFile);
-/*======================================================================
- | End of forward declaration
- ======================================================================*/
-
 namespace jjyou {
 	namespace io {
 
@@ -136,15 +123,15 @@ namespace jjyou {
 
 		private:
 			std::map<std::string, std::string> content;
-			friend inline std::ostream& ::operator<<(std::ostream& out, const jjyou::io::IniFile& iniFile);
+			friend inline std::ostream& operator<<(std::ostream& out, const jjyou::io::IniFile& iniFile);
 		};
+
+		/** @brief Write jjyou::io::IniFile to text stream.
+		  */
+		inline std::ostream& operator<<(std::ostream& out, const jjyou::io::IniFile& iniFile);
+
 	}
 }
-
-/** @brief Write jjyou::io::IniFile to text stream.
-  */
-inline std::ostream& operator<<(std::ostream& out, const jjyou::io::IniFile& iniFile);
-
 
 /*======================================================================
  | Implementation
@@ -249,19 +236,21 @@ namespace jjyou {
 			}
 			return defaultValue;
 		}
+	
+		inline std::ostream& operator<<(std::ostream& out, const jjyou::io::IniFile& iniFile) {
+			std::map<std::string, std::string>::const_iterator itr = iniFile.content.cbegin();
+			out << "========jjyou::io::IniFile========" << std::endl;
+			while (itr != iniFile.content.cend()) {
+				out << "    " << itr->first << " = " << itr->second << std::endl;
+				itr++;
+			}
+			out << "==================================" << std::endl;
+			return out;
+		}
 	}
 }
 
-inline std::ostream& operator<<(std::ostream& out, const jjyou::io::IniFile& iniFile) {
-	std::map<std::string, std::string>::const_iterator itr = iniFile.content.cbegin();
-	out << "========jjyou::io::IniFile========" << std::endl;
-	while (itr != iniFile.content.cend()) {
-		out << "    " << itr->first << " = " << itr->second << std::endl;
-		itr++;
-	}
-	out << "==================================" << std::endl;
-	return out;
-}
+
 /// @endcond
 
 #endif /* jjyou_io_IniFile_hpp */

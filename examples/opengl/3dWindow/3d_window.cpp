@@ -298,7 +298,7 @@ void draw(void) {
 	shader.setMat4("viewMatrix", win.getViewMatrix());
 	shader.setMat4("projectionMatrix", win.getProjectionMatrix());
 	shader.setMat3("normalMatrix", win.getNormalMatrix());
-	shader.setVec3("viewPosition", win.getviewPosition());
+	shader.setVec3("viewPosition", win.getViewPosition());
 	shader.setBool("enableLight", enableLight);
 	shader.setFloat("shininess", shininess);
 	setLightingUniformVariables(

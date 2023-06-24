@@ -571,7 +571,7 @@ namespace jjyou {
  ======================================================================*/
  /// @cond
 
-
+#include <iostream>
 namespace jjyou {
 	namespace cuda {
 
@@ -812,6 +812,9 @@ namespace jjyou {
 
 		template <class T> void DeviceArray2D<T>::download(T* hostData) const {
 			if (this->_data) {
+				if (this->_referenceCounter == nullptr) {
+					std::cout << "no reference counter" << std::endl;
+				}
 				utils::cudaSafeCall(cudaMemcpy2D((void*)hostData, this->_cols * sizeof(T), (const void*)this->_data, this->_pitch, this->_cols * sizeof(T), this->_rows, cudaMemcpyDeviceToHost), "DeviceArray2D::download, cudaMemcpy2D");
 				utils::cudaSafeCall(cudaDeviceSynchronize(), "DeviceArray2D::download, cudaDeviceSynchronize");
 			}

@@ -1,11 +1,16 @@
 /***********************************************************************
  * @file	HalfedgeMesh.hpp
  * @author	jjyou
- * @date	2023-6-19
+ * @date	2024-1-7
  * @brief	This file implements HalfedgeMesh class.
 ***********************************************************************/
 #ifndef jjyou_geo_HalfedgeMesh_hpp
 #define jjyou_geo_HalfedgeMesh_hpp
+
+#include <iostream>
+#include <vector>
+#include <type_traits>
+#include <Eigen/Eigen>
 
 namespace jjyou {
 	namespace geo {
@@ -17,2683 +22,998 @@ namespace jjyou {
 		 * This class stores meshes in halfedge data structure.
 		 * 
 		 * @sa			https://en.wikipedia.org/wiki/Doubly_connected_edge_list
-		 * @sa			jjyou::geo::PolygonSoupMesh
+		 * @sa			jjyou::geo::IndexedMesh
 		 ***********************************************************************/
+		template <class FP = float>
 		class HalfedgeMesh {
-
-		public:
 
 			/*============================================================
 			 *                    Forward declarations
 			 *============================================================*/
-			template <int Type>
-			class IndexBase;
-			class VertexIndex;
-			class HalfedgeIndex;
-			class FaceIndex;
-			class EdgeIndex;
-			class VertexRange; class VertexIterator;
-			class HalfedgeRange; class HalfedgeIterator;
-			class FaceRange; class FaceIterator;
-			class EdgeRange; class EdgeIterator;
-			class VertexVertexRange; class VertexVertexIterator;
-			class VertexHalfedgeRange; class VertexHalfedgeIterator;
-			class VertexFaceRange; class VertexFaceIterator;
-			class VertexEdgeRange; class VertexEdgeIterator;
-			class FaceVertexRange; class FaceVertexIterator;
-			class FaceHalfedgeRange; class FaceHalfedgeIterator;
-			class FaceFaceRange; class FaceFaceIterator;
-			class FaceEdgeRange; class FaceEdgeIterator;
+		public:
+			using Vec3 = Eigen::Vector<FP, 3>;
+			using Vec2 = Eigen::Vector<FP, 2>;
+			class Vertex;
+			class Halfedge;
+			class Face;
+			class Edge;
+		private:
+			template <class T> class BaseIterator;
+			template <class T> class BaseRange;
+		public:
+			using VertexIter = BaseIterator<std::vector<Vertex>>;
+			using VertexCIter = BaseIterator<const std::vector<Vertex>>;
+			using HalfedgeIter = BaseIterator<std::vector<Halfedge>>;
+			using HalfedgeCIter = BaseIterator<const std::vector<Halfedge>>;
+			using FaceIter = BaseIterator<std::vector<Face>>;
+			using FaceCIter = BaseIterator<const std::vector<Face>>;
+			using EdgeIter = BaseIterator<std::vector<Edge>>;
+			using EdgeCIter = BaseIterator<const std::vector<Edge>>;
+			using VertexRange = BaseRange<std::vector<Vertex>>;
+			using VertexCRange = BaseRange<const std::vector<Vertex>>;
+			using HalfedgeRange = BaseRange<std::vector<Halfedge>>;
+			using HalfedgeCRange = BaseRange<const std::vector<Halfedge>>;
+			using FaceRange = BaseRange<std::vector<Face>>;
+			using FaceCRange = BaseRange<const std::vector<Face>>;
+			using EdgeRange = BaseRange<std::vector<Edge>>;
+			using EdgeCRange = BaseRange<const std::vector<Edge>>;
 			/*============================================================
 			 *                 End of forward declarations
 			 *============================================================*/
 
-			/** @defgroup	IndexClasses
-			  * @brief		Index classes for vertex, halfedge, face, and edge index.
-			  *
-			  * @{
-			  */
+		private:
 
-			/***********************************************************************
-			 * @class IndexBase
-			 * @brief Base index class for vertex, halfedge, face, and edge index.
-			 *
-			 * This class is simply a wrapper of std::size_t. The reason for not using
-			 * std::size_t as the index directly is to avoid mixed use of different element
-			 * indices. With this wrapper class, users need to explicitly call conversion
-			 * functions if they want conversions between an index and an built-in integer.
-			 * @param Type	Index type.
-			 ***********************************************************************/
-			template <int Type>
-			class IndexBase {
+			template <class T> class BaseIterator {
+
 			public:
 
-				/** @brief	Get the underlying index.
-				  * @return	The underlying index.
+				/** @brief	Default constructor.
 				  */
-				std::size_t idx(void) const {
-					return this->_idx;
-				}
+				BaseIterator(void) : data(nullptr), offset(0) {}
 
-				/** @brief	Check whether the index is valid.
-				  * @return	`true` if the index is valid.
+				/** @brief	Check whether the iterator is valid or not.
+				  * @return `true` if the iterator is valid.
 				  */
 				bool valid(void) const {
-					return this->_idx != std::numeric_limits<std::size_t>::max();
+					return (this->data) && (this->offset < this->data->size()) && !(*this->data)[this->offset]._removed;
 				}
 
-				/** @brief	Reset to invalid.
+				/** @brief	Construct from non-const iterator.
+				  *
+				  * The current iterator can be constructed from a non-const iterator if the current one
+				  * is a const one.
 				  */
-				void reset(void) {
-					this->_idx = std::numeric_limits<std::size_t>::max();
-				}
+				BaseIterator(const BaseIterator<std::remove_const_t<T>>& other) : data(other.data), offset(other.offset) { }
 
-			protected:
-
-				/** @brief	Construct an index from an integer.
-				  */
-				explicit IndexBase(std::size_t idx = std::numeric_limits<std::size_t>::max()) : _idx(idx) {}
-
-				/** @brief	Compare two indices.
+				/** @brief	Compare two iterators.
+				  *
+				  * Two iterators can be compared iff they have the same class type, or one of them
+				  * is the const version of the other.
 				  * @return	`true` if lhs == rhs.
 				  */
-				bool operator==(const IndexBase& other) const {
-					return this->_idx == other._idx;
+				template <class U, std::enable_if_t<std::is_same_v<std::remove_const_t<T>, std::remove_const_t<U>>, bool> = true>
+				bool operator==(const BaseIterator<U>& other) const {
+					return (this->data == other.data) && (this->offset == other.offset);
 				}
 
-				/** @brief	Compare two indices.
+				/** @brief	Compare two iterators.
+				  *
+				  * Two iterators can be compared iff they have the same class type, or one of them
+				  * is the const version of the other.
 				  * @return	`true` if lhs != rhs.
 				  */
-				bool operator!=(const IndexBase& other) const {
-					return this->_idx != other._idx;
+				template <class U, std::enable_if_t<std::is_same_v<std::remove_const_t<T>, std::remove_const_t<U>>, bool> = true>
+				bool operator!=(const BaseIterator<U>& other) const {
+					return !(*this == other);
 				}
 
-				/** @brief	Compare two indices.
+				/** @brief	Compare two iterators.
+				  *
+				  * Two iterators can be compared iff they have the same class type, or one of them
+				  * is the const version of the other.
 				  * @return	`true` if lhs >= rhs.
 				  */
-				bool operator>=(const IndexBase& other) const {
-					return this->_idx >= other._idx;
+				template <class U, std::enable_if_t<std::is_same_v<std::remove_const_t<T>, std::remove_const_t<U>>, bool> = true>
+				bool operator>=(const BaseIterator<U>& other) const {
+					return this->data == other.data && this->offset >= other.offset;
 				}
 
-				/** @brief	Compare two indices.
+				/** @brief	Compare two iterators.
+				  *
+				  * Two iterators can be compared iff they have the same class type, or one of them
+				  * is the const version of the other.
 				  * @return	`true` if lhs > rhs.
 				  */
-				bool operator>(const IndexBase& other) const {
-					return this->_idx > other._idx;
+				template <class U, std::enable_if_t<std::is_same_v<std::remove_const_t<T>, std::remove_const_t<U>>, bool> = true>
+				bool operator>(const BaseIterator<U>& other) const {
+					return this->data == other.data && this->offset > other.offset;
 				}
 
-				/** @brief	Compare two indices.
+				/** @brief	Compare two iterators.
+				  *
+				  * Two iterators can be compared iff they have the same class type, or one of them
+				  * is the const version of the other.
 				  * @return	`true` if lhs <= rhs.
 				  */
-				bool operator<=(const IndexBase& other) const {
-					return this->_idx <= other._idx;
+				template <class U, std::enable_if_t<std::is_same_v<std::remove_const_t<T>, std::remove_const_t<U>>, bool> = true>
+				bool operator<=(const BaseIterator<U>& other) const {
+					return this->data == other.data && this->offset <= other.offset;
 				}
 
-				/** @brief	Compare two indices.
+				/** @brief	Compare two iterators.
+				  *
+				  * Two iterators can be compared iff they have the same class type, or one of them
+				  * is the const version of the other.
 				  * @return	`true` if lhs < rhs.
 				  */
-				bool operator<(const IndexBase& other) const {
-					return this->_idx < other._idx;
+				template <class U, std::enable_if_t<std::is_same_v<std::remove_const_t<T>, std::remove_const_t<U>>, bool> = true>
+				bool operator<(const BaseIterator<U>& other) const {
+					return this->data == other.data && this->offset < other.offset;
 				}
 
-				/** @brief	Increment the index.
-				  * @return	Reference of current index after incrementing.
+				/** @brief	Increment the iterator.
+				  * @return	Reference of current iterator after incrementing.
 				  */
-				IndexBase& operator++(void) {
-					this->_idx += 1;
+				BaseIterator& operator++(void) {
+					do {
+						++this->offset;
+					} while ((this->data) && (this->offset < this->data->size()) && (*this->data)[this->offset]._removed);
 					return *this;
 				}
 
-				/** @brief	Increment the index.
-				  * @return	Copy of current index before incrementing.
+				/** @brief	Increment the iterator.
+				  * @return	Copy of current iterator before incrementing.
 				  */
-				IndexBase operator++(int) {
-					IndexBase ret = *this;
-					this->_idx += 1;
+				BaseIterator operator++(int) {
+					BaseIterator ret = *this;
+					this->operator++();
 					return ret;
 				}
 
-				/** @brief	Decrement the index.
-				  * @return	Reference of current index after decrementing.
+				/** @brief	Decrement the iterator.
+				  * @return	Reference of current iterator after decrementing.
 				  */
-				IndexBase& operator--(void) {
-					this->_idx -= 1;
+				BaseIterator& operator--(void) {
+					do {
+						--this->offset;
+					} while ((this->data) && (this->offset < this->data->size()) && (*this->data)[this->offset]._removed);
 					return *this;
 				}
 
-				/** @brief	Decrement the index.
-				  * @return	Copy of current index before decrementing.
+				/** @brief	Decrement the iterator.
+				  * @return	Copy of current iterator before decrementing.
 				  */
-				IndexBase operator--(int) {
-					IndexBase ret = *this;
-					this->_idx -= 1;
+				BaseIterator operator--(int) {
+					BaseIterator ret = *this;
+					this->operator--();
 					return ret;
 				}
 
-				/** @brief	Add an integer to the index.
-				  * @return	Reference of current index.
+				/** @brief	Add an integer to the iterator.
+				  * @return	Reference of current iterator.
 				  */
-				IndexBase& operator+=(std::ptrdiff_t n) {
-					this->_idx += n;
+				BaseIterator& operator+=(std::ptrdiff_t n) {
+					for (int i = 0; i < n; ++i)
+						this->operator++();
 					return *this;
 				}
 
-				/** @brief	Perform addition with an index and an integer.
-				  * @return	A new index after addition.
+				/** @brief	Perform addition with an iterator and an integer.
+				  * @return	A new iterator after addition.
 				  */
-				IndexBase operator+(std::ptrdiff_t n) const {
-					IndexBase ret = *this;
-					ret._idx += n;
-					return ret;
-				}
-
-				/** @brief	Subtract an integer from the index.
-				  * @return	Reference of current index.
-				  */
-				IndexBase& operator-=(std::ptrdiff_t n) {
-					this->_idx -= n;
-					return *this;
-				}
-
-				/** @brief	Perform subtraction with an index and an integer.
-				  * @return	A new index after subtraction.
-				  */
-				IndexBase operator-(std::ptrdiff_t n) const {
-					IndexBase ret = *this;
-					ret._idx -= n;
-					return ret;
-				}
-
-			private:
-				std::size_t _idx;
-			};
-
-			/***********************************************************************
-			 * @class VertexIndex
-			 * @brief Vertex index class.
-			 ***********************************************************************/
-			class VertexIndex : public IndexBase<0> {
-
-			public:
-
-				/** @brief	Construct an vertex index from an integer.
-				  */
-				explicit VertexIndex(std::size_t idx = std::numeric_limits<std::size_t>::max()) : IndexBase<0>(idx) {}
-
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs == rhs.
-				  */
-				bool operator==(const VertexIndex& other) const {
-					return this->IndexBase<0>::operator==(other);
-				}
-
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs != rhs.
-				  */
-				bool operator!=(const VertexIndex& other) const {
-					return this->IndexBase<0>::operator!=(other);
-				}
-
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs >= rhs.
-				  */
-				bool operator>=(const VertexIndex& other) const {
-					return this->IndexBase<0>::operator>=(other);
-				}
-
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs > rhs.
-				  */
-				bool operator>(const VertexIndex& other) const {
-					return this->IndexBase<0>::operator>(other);
-				}
-
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs <= rhs.
-				  */
-				bool operator<=(const VertexIndex& other) const {
-					return this->IndexBase<0>::operator<=(other);
-				}
-
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs < rhs.
-				  */
-				bool operator<(const VertexIndex& other) const {
-					return this->IndexBase<0>::operator<(other);
-				}
-
-				/** @brief	Increment the index.
-				  * @return	Reference of current index after incrementing.
-				  */
-				VertexIndex& operator++(void) {
-					this->IndexBase<0>::operator++();
-					return *this;
-				}
-
-				/** @brief	Increment the index.
-				  * @return	Copy of current index before incrementing.
-				  */
-				VertexIndex operator++(int) {
-					VertexIndex ret = *this;
-					this->IndexBase<0>::operator++(0);
-					return ret;
-				}
-
-				/** @brief	Decrement the index.
-				  * @return	Reference of current index after decrementing.
-				  */
-				VertexIndex& operator--(void) {
-					this->IndexBase<0>::operator--();
-					return *this;
-				}
-
-				/** @brief	Decrement the index.
-				  * @return	Copy of current index before decrementing.
-				  */
-				VertexIndex operator--(int) {
-					VertexIndex ret = *this;
-					this->IndexBase<0>::operator--(0);
-					return ret;
-				}
-
-				/** @brief	Add an integer to the index.
-				  * @return	Reference of current index.
-				  */
-				VertexIndex& operator+=(std::ptrdiff_t n) {
-					this->IndexBase<0>::operator+=(n);
-					return *this;
-				}
-
-				/** @brief	Perform addition with an index and an integer.
-				  * @return	A new index after addition.
-				  */
-				VertexIndex operator+(std::ptrdiff_t n) const {
-					VertexIndex ret = *this;
+				BaseIterator operator+(std::ptrdiff_t n) const {
+					BaseIterator ret = *this;
 					ret.operator+=(n);
 					return ret;
 				}
 
-				/** @brief	Subtract an integer from the index.
-				  * @return	Reference of current index.
+				/** @brief	Subtract an integer from the iterator.
+				  * @return	Reference of current iterator.
 				  */
-				VertexIndex& operator-=(std::ptrdiff_t n) {
-					this->IndexBase<0>::operator-=(n);
+				BaseIterator& operator-=(std::ptrdiff_t n) {
+					for (int i = 0; i < n; ++i)
+						this->operator--();
 					return *this;
 				}
 
-				/** @brief	Perform subtraction with an index and an integer.
-				  * @return	A new index after subtraction.
+				/** @brief	Perform subtraction with an iterator and an integer.
+				  * @return	A new iterator after subtraction.
 				  */
-				VertexIndex operator-(std::ptrdiff_t n) const {
-					VertexIndex ret = *this;
+				BaseIterator operator-(std::ptrdiff_t n) const {
+					BaseIterator ret = *this;
 					ret.operator-=(n);
 					return ret;
+				}
+
+				/** @brief	Fetch the current element.
+				  * @return	The current element.
+				  */
+				auto& operator*() const {
+					return (*this->data)[this->offset];
+				}
+
+				/** @brief	Fetch the current element.
+				  * @return	The current element.
+				  */
+				auto* operator->() const {
+					return &(*this->data)[this->offset];
+				}
+
+			private:
+
+				T* data;
+
+				std::uint32_t offset;
+
+				/** @brief	Construct from data pointer and index.
+				  */
+				BaseIterator(T* data, std::uint32_t offset) : data(data), offset(offset) {}
+
+				friend class HalfedgeMesh;
+				friend class VertexRange;
+				friend class HalfedgeRange;
+				friend class FaceRange;
+				friend class EdgeRange;
+
+			};
+
+			template <class T> class BaseRange {
+
+			public:
+
+				/** @brief	Default constructor.
+				  */
+				BaseRange(void) : data(nullptr), removed(nullptr) {}
+
+				/** @brief	Check whether the range is valid or not.
+				  * @return `true` if the range is valid.
+				  */
+				bool valid(void) const {
+					return this->data;
+				}
+
+				std::size_t size(void) const {
+					this->data->size() - this->removed->size();
+				}
+
+				/** @brief	Construct from non-const range.
+				  *
+				  * The current range can be constructed from a non-const range if the current one
+				  * is a const one.
+				  */
+				BaseRange(const BaseRange<std::remove_const_t<T>>& other) : data(other.data), removed(other.removed) { }
+
+				BaseIterator<T> begin(void) const {
+					BaseIterator<T> ret(this->data, -1);
+					return ++ret;
+				}
+
+				BaseIterator<const T> cbegin(void) const {
+					BaseIterator<const T> ret(this->data, -1);
+					return ++ret;
+				}
+
+				BaseIterator<T> end(void) const {
+					BaseIterator<T> ret(this->data, this->data->size());
+					return ret;
+				}
+
+				BaseIterator<const T> cend(void) const {
+					BaseIterator<const T> ret(this->data, this->data->size());
+					return ret;
+				}
+
+			private:
+
+				T* data;
+				const std::vector<std::uint32_t>* removed;
+
+				/** @brief	Construct from data pointer.
+				  */
+				BaseRange(T* data, const std::vector<std::uint32_t>* removed) : data(data), removed(removed) {}
+
+				friend class HalfedgeMesh;
+
+			};
+
+			 /** @defgroup	Element Classes
+			   * @brief		Element classes for vertex, halfedge, face, and edge.
+			   *
+			   * @{
+			   */
+		public:
+
+			class Vertex {
+
+			public:
+
+				/** @brief Outgoing halfedge.
+				  */
+				HalfedgeIter halfedge;
+
+				/** @brief Position of the vertex.
+				  */
+				Vec3 position;
+
+				/** @brief Default constructor.
+				  */
+				Vertex(void) : _id(-1), halfedge(), position(Vec3::Zero()), _removed(false) {}
+
+				/** @brief Unique identifier.
+				  */
+				std::uint32_t id(void) const {
+					return this->_id;
+				}
+
+				/** @brief Whether this element is removed.
+				  */
+				bool removed(void) const {
+					return this->_removed;
+				}
+
+				/** @brief Check whether the vertex is on a boundary face.
+				  */
+				bool onBoundary(void) const {
+					bool boundary = false;
+					HalfedgeCIter h = this->halfedge;
+					do {
+						boundary = boundary || h->face->boundary;
+						h = h->twin->next;
+					} while (!boundary && h != this->halfedge);
+					return boundary;
+				}
+
+				/** @brief Compute the degree of the vertex.
+				  */
+				std::uint32_t degree(void) const {
+					uint32_t deg = 0;
+					HalfedgeCIter h = this->halfedge;
+					do {
+						++deg;
+						h = h->twin->next;
+					} while (h != this->halfedge);
+					return deg;
+				}
+
+				/** @brief Helper printing function.
+				  */
+				friend std::ostream& operator<<(std::ostream& out, const Vertex& v) {
+					out << "v" << v._id;
+					return out;
+				}
+
+			private:
+
+				/** @brief Unique identifier.
+				  */
+				std::uint32_t _id;
+
+				/** @brief Whether this element is removed.
+				  */
+				bool _removed;
+
+				friend class HalfedgeMesh;
+
+			};
+
+			class Halfedge {
+
+			public:
+
+				/** @brief Next halfedge.
+				  */
+				HalfedgeIter next;
+
+				/** @brief Previous halfedge.
+				  */
+				HalfedgeIter prev;
+
+				/** @brief Twin halfedge.
+				  */
+				HalfedgeIter twin;
+
+				/** @brief The vertex this halfedge is leaving.
+				  */
+				VertexIter source;
+
+				/** @brief The edge this halfedge belongs to.
+				  */
+				EdgeIter edge;
+
+				/** @brief The face this halfedge belongs to.
+				  */
+				FaceIter face;
+
+				/** @brief The texture coordinate of the source vertex.
+				  */
+				Vec2 uv;
+
+				/** @brief The normal of the source vertex.
+				  */
+				Vec3 normal;
+
+				/** @brief Default constructor.
+				  */
+				Halfedge(void) : _id(-1), next(), prev(), twin(), source(), edge(), face(), uv(Vec2::Zero()), normal(Vec3::Zero()), _removed(false) {}
+				
+				/** @brief Unique identifier.
+				  */
+				std::uint32_t id(void) const {
+					return this->_id;
+				}
+
+				/** @brief Whether this element is removed.
+				  */
+				bool removed(void) const {
+					return this->_removed;
 				}
 				
-				friend std::ostream& operator<<(std::ostream& out, const VertexIndex& index) {
-					out << "v" << index.idx();
+				/** @brief Check whether the halfedge is on a boundary face.
+				  */
+				bool onBoundary(void) const {
+					return this->face->boundary;
+				}
+				
+				/** @brief Helper printing function.
+				  */
+				friend std::ostream& operator<<(std::ostream& out, const Halfedge& h) {
+					out << "h" << h._id;
 					return out;
 				}
 
+			private:
+
+				/** @brief Unique identifier.
+				  */
+				std::uint32_t _id;
+
+				/** @brief Whether this element is removed.
+				  */
+				bool _removed;
+
+				friend class HalfedgeMesh;
+
 			};
 
-			/***********************************************************************
-			 * @class HalfedgeIndex
-			 * @brief Halfedge index class.
-			 ***********************************************************************/
-			class HalfedgeIndex : public IndexBase<1> {
+			class Face {
 
 			public:
 
-				/** @brief	Construct an vertex index from an integer.
+				/** @brief A halfedge in this face.
 				  */
-				explicit HalfedgeIndex(std::size_t idx = std::numeric_limits<std::size_t>::max()) : IndexBase<1>(idx) {}
+				HalfedgeIter halfedge;
 
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs == rhs.
+				/** @brief Whether this element is a boundary face.
 				  */
-				bool operator==(const HalfedgeIndex& other) const {
-					return this->IndexBase<1>::operator==(other);
+				bool boundary;
+
+				/** @brief Default constructor.
+				  */
+				Face(void) : _id(-1), halfedge(), _removed(false), boundary(false) {}
+
+				/** @brief Unique identifier.
+				  */
+				std::uint32_t id(void) const {
+					return this->_id;
 				}
 
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs != rhs.
+				/** @brief Whether this element is removed.
 				  */
-				bool operator!=(const HalfedgeIndex& other) const {
-					return this->IndexBase<1>::operator!=(other);
+				bool removed(void) const {
+					return this->_removed;
+				}
+				
+				/** @brief Compute the degree of the vertex.
+				  */
+				std::uint32_t degree(void) const {
+					uint32_t deg = 0;
+					HalfedgeCIter h = this->halfedge;
+					do {
+						++deg;
+						h = h->next;
+					} while (h != this->halfedge);
+					return deg;
 				}
 
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs >= rhs.
+				/** @brief Helper printing function.
 				  */
-				bool operator>=(const HalfedgeIndex& other) const {
-					return this->IndexBase<1>::operator>=(other);
-				}
-
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs > rhs.
-				  */
-				bool operator>(const HalfedgeIndex& other) const {
-					return this->IndexBase<1>::operator>(other);
-				}
-
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs <= rhs.
-				  */
-				bool operator<=(const HalfedgeIndex& other) const {
-					return this->IndexBase<1>::operator<=(other);
-				}
-
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs < rhs.
-				  */
-				bool operator<(const HalfedgeIndex& other) const {
-					return this->IndexBase<1>::operator<(other);
-				}
-
-				/** @brief	Increment the index.
-				  * @return	Reference of current index after incrementing.
-				  */
-				HalfedgeIndex& operator++(void) {
-					this->IndexBase<1>::operator++();
-					return *this;
-				}
-
-				/** @brief	Increment the index.
-				  * @return	Copy of current index before incrementing.
-				  */
-				HalfedgeIndex operator++(int) {
-					HalfedgeIndex ret = *this;
-					this->IndexBase<1>::operator++(0);
-					return ret;
-				}
-
-				/** @brief	Decrement the index.
-				  * @return	Reference of current index after decrementing.
-				  */
-				HalfedgeIndex& operator--(void) {
-					this->IndexBase<1>::operator--();
-					return *this;
-				}
-
-				/** @brief	Decrement the index.
-				  * @return	Copy of current index before decrementing.
-				  */
-				HalfedgeIndex operator--(int) {
-					HalfedgeIndex ret = *this;
-					this->IndexBase<1>::operator--(0);
-					return ret;
-				}
-
-				/** @brief	Add an integer to the index.
-				  * @return	Reference of current index.
-				  */
-				HalfedgeIndex& operator+=(std::ptrdiff_t n) {
-					this->IndexBase<1>::operator+=(n);
-					return *this;
-				}
-
-				/** @brief	Perform addition with an index and an integer.
-				  * @return	A new index after addition.
-				  */
-				HalfedgeIndex operator+(std::ptrdiff_t n) const {
-					HalfedgeIndex ret = *this;
-					ret.operator+=(n);
-					return ret;
-				}
-
-				/** @brief	Subtract an integer from the index.
-				  * @return	Reference of current index.
-				  */
-				HalfedgeIndex& operator-=(std::ptrdiff_t n) {
-					this->IndexBase<1>::operator-=(n);
-					return *this;
-				}
-
-				/** @brief	Perform subtraction with an index and an integer.
-				  * @return	A new index after subtraction.
-				  */
-				HalfedgeIndex operator-(std::ptrdiff_t n) const {
-					HalfedgeIndex ret = *this;
-					ret.operator-=(n);
-					return ret;
-				}
-
-				friend std::ostream& operator<<(std::ostream& out, const HalfedgeIndex& index) {
-					out << "h" << index.idx();
+				friend std::ostream& operator<<(std::ostream& out, const Face& f) {
+					out << "f" << f._id;
 					return out;
 				}
 
+			private:
+
+				/** @brief Unique identifier.
+				  */
+				std::uint32_t _id;
+
+				/** @brief Whether this element is removed.
+				  */
+				bool _removed;
+
+				friend class HalfedgeMesh;
+
 			};
 
-			/***********************************************************************
-			 * @class FaceIndex
-			 * @brief Face index class.
-			 ***********************************************************************/
-			class FaceIndex : public IndexBase<2> {
+			class Edge {
 
 			public:
 
-				/** @brief	Construct an vertex index from an integer.
+				/** @brief A halfedge in this edge.
 				  */
-				explicit FaceIndex(std::size_t idx = std::numeric_limits<std::size_t>::max()) : IndexBase<2>(idx) {}
+				HalfedgeIter halfedge;
 
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs == rhs.
+				/** @brief Default constructor.
 				  */
-				bool operator==(const FaceIndex& other) const {
-					return this->IndexBase<2>::operator==(other);
+				Edge(void) : _id(-1), halfedge(), _removed(false) {}
+
+				/** @brief Unique identifier.
+				  */
+				std::uint32_t id(void) const {
+					return this->_id;
 				}
 
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs != rhs.
+				/** @brief Whether this element is removed.
 				  */
-				bool operator!=(const FaceIndex& other) const {
-					return this->IndexBase<2>::operator!=(other);
+				bool removed(void) const {
+					return this->_removed;
+				}
+				
+				/** @brief Check whether the edge is on a boundary face.
+				  */
+				bool onBoundary(void) const {
+					return this->halfedge->face->boundary || this->halfedge->twin->face->boundary;
 				}
 
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs >= rhs.
+				/** @brief Helper printing function.
 				  */
-				bool operator>=(const FaceIndex& other) const {
-					return this->IndexBase<2>::operator>=(other);
-				}
-
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs > rhs.
-				  */
-				bool operator>(const FaceIndex& other) const {
-					return this->IndexBase<2>::operator>(other);
-				}
-
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs <= rhs.
-				  */
-				bool operator<=(const FaceIndex& other) const {
-					return this->IndexBase<2>::operator<=(other);
-				}
-
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs < rhs.
-				  */
-				bool operator<(const FaceIndex& other) const {
-					return this->IndexBase<2>::operator<(other);
-				}
-
-				/** @brief	Increment the index.
-				  * @return	Reference of current index after incrementing.
-				  */
-				FaceIndex& operator++(void) {
-					this->IndexBase<2>::operator++();
-					return *this;
-				}
-
-				/** @brief	Increment the index.
-				  * @return	Copy of current index before incrementing.
-				  */
-				FaceIndex operator++(int) {
-					FaceIndex ret = *this;
-					this->IndexBase<2>::operator++(0);
-					return ret;
-				}
-
-				/** @brief	Decrement the index.
-				  * @return	Reference of current index after decrementing.
-				  */
-				FaceIndex& operator--(void) {
-					this->IndexBase<2>::operator--();
-					return *this;
-				}
-
-				/** @brief	Decrement the index.
-				  * @return	Copy of current index before decrementing.
-				  */
-				FaceIndex operator--(int) {
-					FaceIndex ret = *this;
-					this->IndexBase<2>::operator--(0);
-					return ret;
-				}
-
-				/** @brief	Add an integer to the index.
-				  * @return	Reference of current index.
-				  */
-				FaceIndex& operator+=(std::ptrdiff_t n) {
-					this->IndexBase<2>::operator+=(n);
-					return *this;
-				}
-
-				/** @brief	Perform addition with an index and an integer.
-				  * @return	A new index after addition.
-				  */
-				FaceIndex operator+(std::ptrdiff_t n) const {
-					FaceIndex ret = *this;
-					ret.operator+=(n);
-					return ret;
-				}
-
-				/** @brief	Subtract an integer from the index.
-				  * @return	Reference of current index.
-				  */
-				FaceIndex& operator-=(std::ptrdiff_t n) {
-					this->IndexBase<2>::operator-=(n);
-					return *this;
-				}
-
-				/** @brief	Perform subtraction with an index and an integer.
-				  * @return	A new index after subtraction.
-				  */
-				FaceIndex operator-(std::ptrdiff_t n) const {
-					FaceIndex ret = *this;
-					ret.operator-=(n);
-					return ret;
-				}
-
-				friend std::ostream& operator<<(std::ostream& out, const FaceIndex& index) {
-					out << "f" << index.idx();
+				friend std::ostream& operator<<(std::ostream& out, const Edge& e) {
+					out << "e" << e._id;
 					return out;
 				}
 
-			};
-
-			/***********************************************************************
-			 * @class EdgeIndex
-			 * @brief Edge index class.
-			 ***********************************************************************/
-			class EdgeIndex : public IndexBase<3> {
-
-			public:
-
-				/** @brief	Construct an vertex index from an integer.
-				  */
-				explicit EdgeIndex(std::size_t idx = std::numeric_limits<std::size_t>::max()) : IndexBase<3>(idx) {}
-
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs == rhs.
-				  */
-				bool operator==(const EdgeIndex& other) const {
-					return this->IndexBase<3>::operator==(other);
-				}
-
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs != rhs.
-				  */
-				bool operator!=(const EdgeIndex& other) const {
-					return this->IndexBase<3>::operator!=(other);
-				}
-
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs >= rhs.
-				  */
-				bool operator>=(const EdgeIndex& other) const {
-					return this->IndexBase<3>::operator>=(other);
-				}
-
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs > rhs.
-				  */
-				bool operator>(const EdgeIndex& other) const {
-					return this->IndexBase<3>::operator>(other);
-				}
-
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs <= rhs.
-				  */
-				bool operator<=(const EdgeIndex& other) const {
-					return this->IndexBase<3>::operator<=(other);
-				}
-
-				/** @brief	Compare two indices.
-				  * @return	`true` if lhs < rhs.
-				  */
-				bool operator<(const EdgeIndex& other) const {
-					return this->IndexBase<3>::operator<(other);
-				}
-
-				/** @brief	Increment the index.
-				  * @return	Reference of current index after incrementing.
-				  */
-				EdgeIndex& operator++(void) {
-					this->IndexBase<3>::operator++();
-					return *this;
-				}
-
-				/** @brief	Increment the index.
-				  * @return	Copy of current index before incrementing.
-				  */
-				EdgeIndex operator++(int) {
-					EdgeIndex ret = *this;
-					this->IndexBase<3>::operator++(0);
-					return ret;
-				}
-
-				/** @brief	Decrement the index.
-				  * @return	Reference of current index after decrementing.
-				  */
-				EdgeIndex& operator--(void) {
-					this->IndexBase<3>::operator--();
-					return *this;
-				}
-
-				/** @brief	Decrement the index.
-				  * @return	Copy of current index before decrementing.
-				  */
-				EdgeIndex operator--(int) {
-					EdgeIndex ret = *this;
-					this->IndexBase<3>::operator--(0);
-					return ret;
-				}
-
-				/** @brief	Add an integer to the index.
-				  * @return	Reference of current index.
-				  */
-				EdgeIndex& operator+=(std::ptrdiff_t n) {
-					this->IndexBase<3>::operator+=(n);
-					return *this;
-				}
-
-				/** @brief	Perform addition with an index and an integer.
-				  * @return	A new index after addition.
-				  */
-				EdgeIndex operator+(std::ptrdiff_t n) const {
-					EdgeIndex ret = *this;
-					ret.operator+=(n);
-					return ret;
-				}
-
-				/** @brief	Subtract an integer from the index.
-				  * @return	Reference of current index.
-				  */
-				EdgeIndex& operator-=(std::ptrdiff_t n) {
-					this->IndexBase<3>::operator-=(n);
-					return *this;
-				}
-
-				/** @brief	Perform subtraction with an index and an integer.
-				  * @return	A new index after subtraction.
-				  */
-				EdgeIndex operator-(std::ptrdiff_t n) const {
-					EdgeIndex ret = *this;
-					ret.operator-=(n);
-					return ret;
-				}
-
-				friend std::ostream& operator<<(std::ostream& out, const EdgeIndex& index) {
-					out << "e" << index.idx();
-					return out;
-				}
-
-			};
-
-			/** @}
-			  */
-			
-			/** @defgroup	RangeClasses
-			  * @brief		Range (and iterator) classes for vertices, halfedges, faces, edges,
-			  *				vertex-vertices, vertex-halfedges, vertex-faces, vertex-edges,
-			  *				face-vertices, face-halfedges, face-faces, face-edges.
-			  *
-			  * @{
-			  */
-
-			/***********************************************************************
-			 * @class	VertexIterator
-			 * @brief	Iterator class for VertexRange.
-			 ***********************************************************************/
-			class VertexIterator {
-
-			public:
-
-				using Self = VertexIterator;
-				using DereferenceType = VertexIndex;
-
-				/** @brief	Default constructor.
-				  */
-				VertexIterator(void) : pMesh(nullptr), pos() {}
-
-				/** @brief	Check whether this iterator is valid or not.
-				  * @return	`true` if this iterator is valid.
-				  */
-				bool valid(void) const {
-					return (this->pMesh && this->pos.idx() < this->pMesh->numVertices());
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType& operator*() const {
-					return this->pos;
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType* operator->() const {
-					return &this->pos;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Reference of the iterator after incrementing.
-				  */
-				Self& operator++(void) {
-					this->pos++;
-					return *this;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Copy of the iterator before incrementing.
-				  */
-				Self operator++(int) {
-					Self ret = *this;
-					this->pos++;
-					return ret;
-				}
-
-				/** @brief	Decrement the iterator.
-				  * @return	Reference of the iterator after decrementing.
-				  */
-				Self& operator--(void) {
-					this->pos--;
-					return *this;
-				}
-
-				/** @brief	Decrement the iterator.
-				  * @return	Copy of the iterator before decrementing.
-				  */
-				Self operator--(int) {
-					Self ret = *this;
-					this->pos--;
-					return ret;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs == rhs.
-				  */
-				bool operator==(const Self& other) const {
-					return this->pos == other.pos;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs != rhs.
-				  */
-				bool operator!=(const Self& other) const {
-					return this->pos != other.pos;
-				}
-
 			private:
-				VertexIterator(
-					const HalfedgeMesh* pMesh,
-					std::size_t pos
-				) : pMesh(pMesh), pos(pos) {}
-				const HalfedgeMesh* pMesh;
-				DereferenceType pos;
-				friend class VertexRange;
-			};
 
-			/***********************************************************************
-			 * @class	VertexRange
-			 * @brief	Vertex range class for iterating all vertices of a mesh.
-			 ***********************************************************************/
-			class VertexRange {
-
-			public:
-
-				using IteratorType = VertexIterator;
-
-				/** @brief	Get the number of vertices.
-				  * @return	The number of vertices.
+				/** @brief Unique identifier.
 				  */
-				size_t size(void) const {
-					return this->mesh.numVertices();
-				}
+				std::uint32_t _id;
 
-				/** @brief	Get the iterator pointing to the first element.
-				  * @return	An iterator pointing to the first element.
+				/** @brief Whether this element is removed.
 				  */
-				IteratorType begin(void) const {
-					return IteratorType(&this->mesh, 0);
-				}
+				bool _removed;
 
-				/** @brief	Get the iterator referring to the past-the-end element.
-				  * @return	An iterator referring to the past-the-end element.
-				  */
-				IteratorType end(void) const {
-					return IteratorType(&this->mesh, this->mesh.numVertices());
-				}
-
-			private:
-				const HalfedgeMesh& mesh;
-				VertexRange(const HalfedgeMesh& mesh) : mesh(mesh) {}
 				friend class HalfedgeMesh;
+
 			};
 
-			/***********************************************************************
-			 * @class	HalfedgeIterator
-			 * @brief	Iterator class for HalfedgeRange.
-			 ***********************************************************************/
-			class HalfedgeIterator {
-
-			public:
-
-				using Self = HalfedgeIterator;
-				using DereferenceType = HalfedgeIndex;
-
-				/** @brief	Default constructor.
-				  */
-				HalfedgeIterator(void) : pMesh(nullptr), pos() {}
-
-				/** @brief	Check whether this iterator is valid or not.
-				  * @return	`true` if this iterator is valid.
-				  */
-				bool valid(void) const {
-					return (this->pMesh && this->pos.idx() < this->pMesh->numHalfedges());
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType& operator*() const {
-					return this->pos;
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType* operator->() const {
-					return &this->pos;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Reference of the iterator after incrementing.
-				  */
-				Self& operator++(void) {
-					this->pos++;
-					return *this;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Copy of the iterator before incrementing.
-				  */
-				Self operator++(int) {
-					Self ret = *this;
-					this->pos++;
-					return ret;
-				}
-
-				/** @brief	Decrement the iterator.
-				  * @return	Reference of the iterator after decrementing.
-				  */
-				Self& operator--(void) {
-					this->pos--;
-					return *this;
-				}
-
-				/** @brief	Decrement the iterator.
-				  * @return	Copy of the iterator before decrementing.
-				  */
-				Self operator--(int) {
-					Self ret = *this;
-					this->pos--;
-					return ret;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs == rhs.
-				  */
-				bool operator==(const Self& other) const {
-					return this->pos == other.pos;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs != rhs.
-				  */
-				bool operator!=(const Self& other) const {
-					return this->pos != other.pos;
-				}
-
-			private:
-				const HalfedgeMesh* pMesh;
-				DereferenceType pos;
-				HalfedgeIterator(
-					const HalfedgeMesh* pMesh,
-					std::size_t pos
-				) : pMesh(pMesh), pos(pos) {}
-				friend class HalfedgeRange;
-			};
-
-			/***********************************************************************
-			 * @class	HalfedgeRange
-			 * @brief	Halfedge range class for iterating all halfedges of a mesh.
-			 ***********************************************************************/
-			class HalfedgeRange {
-
-			public:
-
-				using IteratorType = HalfedgeIterator;
-
-				/** @brief	Get the number of halfedges.
-				  * @return	The number of halfedges.
-				  */
-				size_t size(void) const {
-					return this->mesh.numHalfedges();
-				}
-
-				/** @brief	Get the iterator pointing to the first element.
-				  * @return	An iterator pointing to the first element.
-				  */
-				IteratorType begin(void) const {
-					return IteratorType(&this->mesh, 0);
-				}
-
-				/** @brief	Get the iterator referring to the past-the-end element.
-				  * @return	An iterator referring to the past-the-end element.
-				  */
-				IteratorType end(void) const {
-					return IteratorType(&this->mesh, this->mesh.numHalfedges());
-				}
-
-			private:
-				const HalfedgeMesh& mesh;
-				HalfedgeRange(const HalfedgeMesh& mesh) : mesh(mesh) {}
-				friend class HalfedgeMesh;
-			};
-
-			/***********************************************************************
-			 * @class	FaceIterator
-			 * @brief	Iterator class for FaceRange.
-			 ***********************************************************************/
-			class FaceIterator {
-
-			public:
-
-				using Self = FaceIterator;
-				using DereferenceType = HalfedgeIndex;
-
-				/** @brief	Default constructor.
-				  */
-				FaceIterator(void) : pMesh(nullptr), pos() {}
-
-				/** @brief	Check whether this iterator is valid or not.
-				  * @return	`true` if this iterator is valid.
-				  */
-				bool valid(void) const {
-					return (this->pMesh && this->pos.idx() < this->pMesh->numFaces());
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType& operator*() const {
-					return this->pos;
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType* operator->() const {
-					return &this->pos;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Reference of the iterator after incrementing.
-				  */
-				Self& operator++(void) {
-					this->pos++;
-					return *this;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Copy of the iterator before incrementing.
-				  */
-				Self operator++(int) {
-					Self ret = *this;
-					this->pos++;
-					return ret;
-				}
-
-				/** @brief	Decrement the iterator.
-				  * @return	Reference of the iterator after decrementing.
-				  */
-				Self& operator--(void) {
-					this->pos--;
-					return *this;
-				}
-
-				/** @brief	Decrement the iterator.
-				  * @return	Copy of the iterator before decrementing.
-				  */
-				Self operator--(int) {
-					Self ret = *this;
-					this->pos--;
-					return ret;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs == rhs.
-				  */
-				bool operator==(const Self& other) const {
-					return this->pos == other.pos;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs != rhs.
-				  */
-				bool operator!=(const Self& other) const {
-					return this->pos != other.pos;
-				}
-
-			private:
-				const HalfedgeMesh* pMesh;
-				DereferenceType pos;
-				FaceIterator(
-					const HalfedgeMesh* pMesh,
-					std::size_t pos
-				) : pMesh(pMesh), pos(pos) {}
-				friend class FaceRange;
-			};
-			
-			/***********************************************************************
-			 * @class	FaceRange
-			 * @brief	Face range class for iterating all faces of a mesh.
-			 ***********************************************************************/
-			class FaceRange {
-
-			public:
-
-				using IteratorType = FaceIterator;
-
-				/** @brief	Get the number of faces.
-				  * @return	The number of faces.
-				  */
-				size_t size(void) const {
-					return this->mesh.numFaces();
-				}
-
-				/** @brief	Get the iterator pointing to the first element.
-				  * @return	An iterator pointing to the first element.
-				  */
-				IteratorType begin(void) const {
-					return IteratorType(&this->mesh, 0);
-				}
-
-				/** @brief	Get the iterator referring to the past-the-end element.
-				  * @return	An iterator referring to the past-the-end element.
-				  */
-				IteratorType end(void) const {
-					return IteratorType(&this->mesh, this->mesh.numFaces());
-				}
-
-			private:
-				const HalfedgeMesh& mesh;
-				FaceRange(const HalfedgeMesh& mesh) : mesh(mesh) {}
-				friend class HalfedgeMesh;
-			};
-
-			/***********************************************************************
-			 * @class	EdgeIterator
-			 * @brief	Iterator class for EdgeRange.
-			 ***********************************************************************/
-			class EdgeIterator {
-
-			public:
-
-				using Self = EdgeIterator;
-				using DereferenceType = EdgeIndex;
-
-				/** @brief	Default constructor.
-				  */
-				EdgeIterator(void) : pMesh(nullptr), pos() {}
-
-				/** @brief	Check whether this iterator is valid or not.
-				  * @return	`true` if this iterator is valid.
-				  */
-				bool valid(void) const {
-					return (this->pMesh && this->pos.idx() < this->pMesh->numEdges());
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType& operator*() const {
-					return this->pos;
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType* operator->() const {
-					return &this->pos;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Reference of the iterator after incrementing.
-				  */
-				Self& operator++(void) {
-					this->pos++;
-					return *this;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Copy of the iterator before incrementing.
-				  */
-				Self operator++(int) {
-					Self ret = *this;
-					this->pos++;
-					return ret;
-				}
-
-				/** @brief	Decrement the iterator.
-				  * @return	Reference of the iterator after decrementing.
-				  */
-				Self& operator--(void) {
-					this->pos--;
-					return *this;
-				}
-
-				/** @brief	Decrement the iterator.
-				  * @return	Copy of the iterator before decrementing.
-				  */
-				Self operator--(int) {
-					Self ret = *this;
-					this->pos--;
-					return ret;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs == rhs.
-				  */
-				bool operator==(const Self& other) const {
-					return this->pos == other.pos;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs != rhs.
-				  */
-				bool operator!=(const Self& other) const {
-					return this->pos != other.pos;
-				}
-
-			private:
-				const HalfedgeMesh* pMesh;
-				DereferenceType pos;
-				EdgeIterator(
-					const HalfedgeMesh* pMesh,
-					std::size_t pos
-				) : pMesh(pMesh), pos(pos) {}
-				friend class EdgeRange;
-			};
-
-			/***********************************************************************
-			 * @class	EdgeRange
-			 * @brief	Edge range class for iterating all edges of a mesh.
-			 ***********************************************************************/
-			class EdgeRange {
-
-			public:
-
-				using IteratorType = EdgeIterator;
-
-				/** @brief	Get the number of edges.
-				  * @return	The number of faces.
-				  */
-				size_t size(void) const {
-					return this->mesh.numEdges();
-				}
-
-				/** @brief	Get the iterator pointing to the first element.
-				  * @return	An iterator pointing to the first element.
-				  */
-				IteratorType begin(void) const {
-					return IteratorType(&this->mesh, 0);
-				}
-
-				/** @brief	Get the iterator referring to the past-the-end element.
-				  * @return	An iterator referring to the past-the-end element.
-				  */
-				IteratorType end(void) const {
-					return IteratorType(&this->mesh, this->mesh.numEdges());
-				}
-
-			private:
-				const HalfedgeMesh& mesh;
-				EdgeRange(const HalfedgeMesh& mesh) : mesh(mesh) {}
-				friend class HalfedgeMesh;
-			};
-
-			/***********************************************************************
-			 * @class	VertexHalfedgeIterator
-			 * @brief	Iterator class for VertexHalfedgeRange.
-			 ***********************************************************************/
-			class VertexHalfedgeIterator {
-
-			public:
-
-				using Self = VertexHalfedgeIterator;
-				using DereferenceType = HalfedgeIndex;
-
-				/** @brief	Default constructor.
-				  */
-				VertexHalfedgeIterator(void) :
-					pMesh(nullptr),
-					center(),
-					outgoing(true),
-					clockwise(true),
-					end(true),
-					start(),
-					current()
-				{}
-
-				/** @brief	Check whether this iterator is valid or not.
-				  * @return	`true` if this iterator is valid.
-				  */
-				bool valid(void) const {
-					return !this->end;
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType& operator*() const {
-					return this->current;
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType* operator->() const {
-					return &this->current;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Reference of the iterator after incrementing.
-				  */
-				Self& operator++(void) {
-					if (!this->end) {
-						switch ((int)this->outgoing << 1 | (int)this->clockwise) {
-						case 0b00:
-							this->current = this->pMesh->halfedgePreviousHalfedge(this->pMesh->halfedgeOppositeHalfedge(this->current));
-							break;
-						case 0b01:
-							this->current = this->pMesh->halfedgeOppositeHalfedge(this->pMesh->halfedgeNextHalfedge(this->current));
-							break;
-						case 0b10:
-							this->current = this->pMesh->halfedgeOppositeHalfedge(this->pMesh->halfedgePreviousHalfedge(this->current));
-							break;
-						case 0b11:
-							this->current = this->pMesh->halfedgeNextHalfedge(this->pMesh->halfedgeOppositeHalfedge(this->current));
-							break;
-						}
-						if (!this->current.valid() || this->current == this->start) {
-							this->end = true;
-						}
-					}
-					return *this;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Copy of the iterator before incrementing.
-				  */
-				Self operator++(int) {
-					Self ret = *this;
-					this->operator++();
-					return ret;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs == rhs.
-				  */
-				bool operator==(const Self& other) const {
-					return (this->end == other.end && (this->end || this->current == other.current));
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs != rhs.
-				  */
-				bool operator!=(const Self& other) const {
-					return !(this->operator==(other));
-				}
-
-			private:
-				const HalfedgeMesh* pMesh;
-				VertexIndex center;
-				bool outgoing;
-				bool clockwise;
-				bool end;
-				HalfedgeIndex start;
-				HalfedgeIndex current;
-				VertexHalfedgeIterator(
-					const HalfedgeMesh* pMesh,
-					VertexIndex center,
-					bool outgoing,
-					bool clockwise,
-					bool end,
-					HalfedgeIndex start
-				) : pMesh(pMesh),
-					center(center),
-					outgoing(outgoing),
-					clockwise(clockwise),
-					end(end || !pMesh || center.idx() >= pMesh->numVertices()),
-					start(
-						(this->end ?
-							HalfedgeIndex() :
-							(outgoing ?
-								(pMesh->halfedgeSourceVertex(start) == center ?
-									start : pMesh->vertexOutgoingHalfedge(center)) :
-								(pMesh->halfedgeTargetVertex(start) == center ?
-									start : pMesh->vertexIngoingHalfedge(center))))
-					),
-					current(this->start)
-				{
-					if (!this->start.valid())
-						this->end = true;
-				}
-				friend class VertexHalfedgeRange;
-				friend class VertexVertexIterator;
-				friend class VertexFaceIterator;
-				friend class VertexEdgeIterator;
-			};
-
-			/***********************************************************************
-			 * @class	VertexHalfedgeRange
-			 * @brief	Vertex-halfedge range class for iterating all halfedges
-			 *			starting from / pointing to a vertex of a mesh.
-			 ***********************************************************************/
-			class VertexHalfedgeRange {
-
-			public:
-
-				using IteratorType = VertexHalfedgeIterator;
-
-				/** @brief	Get the iterator pointing to the first element.
-				  * @return	An iterator pointing to the first element.
-				  */
-				IteratorType begin(void) const {
-					return IteratorType(&this->mesh, this->center, this->outgoing, this->clockwise, false, this->start);
-				}
-
-				/** @brief	Get the iterator referring to the past-the-end element.
-				  * @return	An iterator referring to the past-the-end element.
-				  */
-				IteratorType end(void) const {
-					return IteratorType(&this->mesh, this->center, this->outgoing, this->clockwise, true, this->start);
-				}
-
-			private:
-				const HalfedgeMesh& mesh;
-				VertexIndex center;
-				bool outgoing;
-				bool clockwise;
-				HalfedgeIndex start;
-				VertexHalfedgeRange(const HalfedgeMesh& mesh, VertexIndex center, bool outgoing, bool clockwise, HalfedgeIndex start) :
-					mesh(mesh),
-					center(center),
-					outgoing(outgoing),
-					clockwise(clockwise),
-					start(start)
-				{}
-				friend class HalfedgeMesh;
-			};
-
-			/***********************************************************************
-			 * @class	VertexVertexIterator
-			 * @brief	Iterator class for VertexVertexRange.
-			 ***********************************************************************/
-			class VertexVertexIterator {
-
-			public:
-
-				using Self = VertexVertexIterator;
-				using DereferenceType = VertexIndex;
-
-				/** @brief	Default constructor.
-				  */
-				VertexVertexIterator(void) :
-					pMesh(nullptr),
-					iterator(),
-					current()
-				{}
-
-				/** @brief	Check whether this iterator is valid or not.
-				  * @return	`true` if this iterator is valid.
-				  */
-				bool valid(void) const {
-					return this->iterator.valid();
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType& operator*() const {
-					return this->current;
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType* operator->() const {
-					return &this->current;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Reference of the iterator after incrementing.
-				  */
-				Self& operator++(void) {
-					++this->iterator;
-					this->current = this->pMesh->halfedgeTargetVertex(*this->iterator);
-					return *this;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Copy of the iterator before incrementing.
-				  */
-				Self operator++(int) {
-					Self ret = *this;
-					++this->iterator;
-					this->current = this->pMesh->halfedgeTargetVertex(*this->iterator);
-					return ret;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs == rhs.
-				  */
-				bool operator==(const Self& other) const {
-					return this->iterator == other.iterator;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs != rhs.
-				  */
-				bool operator!=(const Self& other) const {
-					return !(this->operator==(other));
-				}
-
-			private:
-				const HalfedgeMesh* pMesh;
-				VertexHalfedgeIterator iterator;
-				DereferenceType current;
-				VertexVertexIterator(
-					const HalfedgeMesh* pMesh,
-					VertexIndex center,
-					bool clockwise,
-					bool end,
-					VertexIndex start
-				) : pMesh(pMesh),
-					iterator(pMesh, center, true, clockwise, end, HalfedgeIndex())
-				{
-					if (this->pMesh && center.idx() < this->pMesh->numVertices() && start.idx() < this->pMesh->numVertices()) {
-						bool find = false;
-						for (; this->iterator.valid(); ++this->iterator)
-							if (this->pMesh->halfedgeTargetVertex(*this->iterator) == start) {
-								find = true;
-								break;
-							}
-						this->iterator = VertexHalfedgeIterator(pMesh, center, true, clockwise, end, find ? *this->iterator : HalfedgeIndex());
-					}
-					if (this->pMesh && center.idx() < this->pMesh->numVertices()) {
-						this->current = this->pMesh->halfedgeTargetVertex(*this->iterator);
-					}
-				}
-				friend class VertexVertexRange;
-			};
-
-			/***********************************************************************
-			 * @class	VertexVertexRange
-			 * @brief	Vertex-vertex range class for iterating all adjacent
-			 *			vertices of a vertex of a mesh.
-			 ***********************************************************************/
-			class VertexVertexRange {
-
-			public:
-
-				using IteratorType = VertexVertexIterator;
-
-				/** @brief	Get the iterator pointing to the first element.
-				  * @return	An iterator pointing to the first element.
-				  */
-				IteratorType begin(void) const {
-					return IteratorType(&this->mesh, this->center, this->clockwise, false, this->start);
-				}
-
-				/** @brief	Get the iterator referring to the past-the-end element.
-				  * @return	An iterator referring to the past-the-end element.
-				  */
-				IteratorType end(void) const {
-					return IteratorType(&this->mesh, this->center, this->clockwise, true, this->start);
-				}
-
-			private:
-				const HalfedgeMesh& mesh;
-				VertexIndex center;
-				bool clockwise;
-				VertexIndex start;
-				VertexVertexRange(const HalfedgeMesh& mesh, VertexIndex center, bool clockwise, VertexIndex start) :
-					mesh(mesh),
-					center(center),
-					clockwise(clockwise),
-					start(start)
-				{}
-				friend class HalfedgeMesh;
-			};
-
-			/***********************************************************************
-			 * @class	VertexFaceIterator
-			 * @brief	Iterator class for VertexFaceRange.
-			 ***********************************************************************/
-			class VertexFaceIterator {
-
-			public:
-
-				using Self = VertexFaceIterator;
-				using DereferenceType = FaceIndex;
-
-				/** @brief	Default constructor.
-				  */
-				VertexFaceIterator(void) :
-					pMesh(nullptr),
-					iterator(),
-					current()
-				{}
-
-				/** @brief	Check whether this iterator is valid or not.
-				  * @return	`true` if this iterator is valid.
-				  */
-				bool valid(void) const {
-					return this->iterator.valid();
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType& operator*() const {
-					return this->current;
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType* operator->() const {
-					return &this->current;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Reference of the iterator after incrementing.
-				  */
-				Self& operator++(void) {
-					++this->iterator;
-					this->current = this->pMesh->halfedgeAssociatedFace(*this->iterator);
-					return *this;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Copy of the iterator before incrementing.
-				  */
-				Self operator++(int) {
-					Self ret = *this;
-					++this->iterator;
-					this->current = this->pMesh->halfedgeAssociatedFace(*this->iterator);
-					return ret;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs == rhs.
-				  */
-				bool operator==(const Self& other) const {
-					return this->iterator == other.iterator;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs != rhs.
-				  */
-				bool operator!=(const Self& other) const {
-					return !(this->operator==(other));
-				}
-
-			private:
-				const HalfedgeMesh* pMesh;
-				VertexHalfedgeIterator iterator;
-				DereferenceType current;
-				VertexFaceIterator(
-					const HalfedgeMesh* pMesh,
-					VertexIndex center,
-					bool clockwise,
-					bool end,
-					FaceIndex start
-				) : pMesh(pMesh),
-					iterator(pMesh, center, true, clockwise, end, HalfedgeIndex())
-				{
-					if (this->pMesh && center.idx() < this->pMesh->numVertices() && start.idx() < this->pMesh->numFaces()) {
-						bool find = false;
-						for (; this->iterator.valid(); ++this->iterator)
-							if (this->pMesh->halfedgeAssociatedFace(*this->iterator) == start) {
-								find = true;
-								break;
-							}
-						this->iterator = VertexHalfedgeIterator(pMesh, center, true, clockwise, end, find ? *this->iterator : HalfedgeIndex());
-					}
-					if (this->pMesh && center.idx() < this->pMesh->numVertices()) {
-						this->current = this->pMesh->halfedgeAssociatedFace(*this->iterator);
-					}
-				}
-				friend class VertexFaceRange;
-			};
-
-			/***********************************************************************
-			 * @class	VertexFaceRange
-			 * @brief	Vertex-face range class for iterating all adjacent faces of
-			 *			a vertex of a mesh.
-			 ***********************************************************************/
-			class VertexFaceRange {
-
-			public:
-
-				using IteratorType = VertexFaceIterator;
-
-				/** @brief	Get the iterator pointing to the first element.
-				  * @return	An iterator pointing to the first element.
-				  */
-				IteratorType begin(void) const {
-					return IteratorType(&this->mesh, this->center, this->clockwise, false, this->start);
-				}
-
-				/** @brief	Get the iterator referring to the past-the-end element.
-				  * @return	An iterator referring to the past-the-end element.
-				  */
-				IteratorType end(void) const {
-					return IteratorType(&this->mesh, this->center, this->clockwise, true, this->start);
-				}
-
-			private:
-				const HalfedgeMesh& mesh;
-				VertexIndex center;
-				bool clockwise;
-				FaceIndex start;
-				VertexFaceRange(const HalfedgeMesh& mesh, VertexIndex center, bool clockwise, FaceIndex start) :
-					mesh(mesh),
-					center(center),
-					clockwise(clockwise),
-					start(start)
-				{}
-				friend class HalfedgeMesh;
-			};
-
-			/***********************************************************************
-			 * @class	VertexEdgeIterator
-			 * @brief	Iterator class for VertexEdgeRange.
-			 ***********************************************************************/
-			class VertexEdgeIterator {
-
-			public:
-
-				using Self = VertexEdgeIterator;
-				using DereferenceType = EdgeIndex;
-
-				/** @brief	Default constructor.
-				  */
-				VertexEdgeIterator(void) :
-					pMesh(pMesh),
-					iterator(),
-					current()
-				{}
-
-				/** @brief	Check whether this iterator is valid or not.
-				  * @return	`true` if this iterator is valid.
-				  */
-				bool valid(void) const {
-					return this->iterator.valid();
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType& operator*() const {
-					return this->current;
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType* operator->() const {
-					return &this->current;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Reference of the iterator after incrementing.
-				  */
-				Self& operator++(void) {
-					++this->iterator;
-					this->current = this->pMesh->halfedgeAssociatedEdge(*this->iterator);
-					return *this;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Copy of the iterator before incrementing.
-				  */
-				Self operator++(int) {
-					Self ret = *this;
-					++this->iterator;
-					this->current = this->pMesh->halfedgeAssociatedEdge(*this->iterator);
-					return ret;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs == rhs.
-				  */
-				bool operator==(const Self& other) const {
-					return this->iterator == other.iterator;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs != rhs.
-				  */
-				bool operator!=(const Self& other) const {
-					return !(this->operator==(other));
-				}
-
-			private:
-				const HalfedgeMesh* pMesh;
-				VertexHalfedgeIterator iterator;
-				DereferenceType current;
-				VertexEdgeIterator(
-					const HalfedgeMesh* pMesh,
-					VertexIndex center,
-					bool clockwise,
-					bool end,
-					EdgeIndex start
-				) : pMesh(pMesh),
-					iterator(pMesh, center, true, clockwise, end, HalfedgeIndex())
-				{
-					if (this->pMesh && center.idx() < this->pMesh->numVertices() && start.idx() < this->pMesh->numEdges()) {
-						bool find = false;
-						for (; this->iterator.valid(); ++this->iterator)
-							if (this->pMesh->halfedgeAssociatedEdge(*this->iterator) == start) {
-								find = true;
-								break;
-							}
-						this->iterator = VertexHalfedgeIterator(pMesh, center, true, clockwise, end, find ? *this->iterator : HalfedgeIndex());
-					}
-					if (this->pMesh && center.idx() < this->pMesh->numVertices()) {
-						this->current = this->pMesh->halfedgeAssociatedEdge(*this->iterator);
-					}
-				}
-				friend class VertexEdgeRange;
-			};
-
-			/***********************************************************************
-			 * @class	VertexEdgeRange
-			 * @brief	Vertex-edge range class for iterating all incident edges of
-			 *			a vertex of a mesh.
-			 ***********************************************************************/
-			class VertexEdgeRange {
-
-			public:
-
-				using IteratorType = VertexEdgeIterator;
-
-				/** @brief	Get the iterator pointing to the first element.
-				  * @return	An iterator pointing to the first element.
-				  */
-				IteratorType begin(void) const {
-					return IteratorType(&this->mesh, this->center, this->clockwise, false, this->start);
-				}
-
-				/** @brief	Get the iterator referring to the past-the-end element.
-				  * @return	An iterator referring to the past-the-end element.
-				  */
-				IteratorType end(void) const {
-					return IteratorType(&this->mesh, this->center, this->clockwise, true, this->start);
-				}
-
-			private:
-				const HalfedgeMesh& mesh;
-				VertexIndex center;
-				bool clockwise;
-				EdgeIndex start;
-				VertexEdgeRange(const HalfedgeMesh& mesh, VertexIndex center, bool clockwise, EdgeIndex start) :
-					mesh(mesh),
-					center(center),
-					clockwise(clockwise),
-					start(start)
-				{}
-				friend class HalfedgeMesh;
-			};
-
-			/***********************************************************************
-			 * @class	FaceHalfedgeIterator
-			 * @brief	Iterator class for FaceHalfedgeRange.
-			 ***********************************************************************/
-			class FaceHalfedgeIterator {
-
-			public:
-
-				using Self = FaceHalfedgeIterator;
-				using DereferenceType = HalfedgeIndex;
-
-				/** @brief	Default constructor.
-				  */
-				FaceHalfedgeIterator(void) :
-					pMesh(nullptr),
-					center(),
-					positiveOrder(true),
-					end(true),
-					start(),
-					current()
-				{}
-
-				/** @brief	Check whether this iterator is valid or not.
-				  * @return	`true` if this iterator is valid.
-				  */
-				bool valid(void) const {
-					return !this->end;
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType& operator*() const {
-					return this->current;
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType* operator->() const {
-					return &this->current;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Reference of the iterator after incrementing.
-				  */
-				Self& operator++(void) {
-					if (!this->end) {
-						if (this->positiveOrder)
-							this->current = this->pMesh->halfedgeNextHalfedge(this->current);
-						else
-							this->current = this->pMesh->halfedgePreviousHalfedge(this->current);
-						if (!this->current.valid() || this->current == this->start) {
-							this->end = true;
-						}
-					}
-					return *this;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Copy of the iterator before incrementing.
-				  */
-				Self operator++(int) {
-					Self ret = *this;
-					this->operator++();
-					return ret;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs == rhs.
-				  */
-				bool operator==(const Self& other) const {
-					return (this->end == other.end && (this->end || this->current == other.current));
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs != rhs.
-				  */
-				bool operator!=(const Self& other) const {
-					return !(this->operator==(other));
-				}
-
-			private:
-				const HalfedgeMesh* pMesh;
-				FaceIndex center;
-				bool positiveOrder;
-				bool end;
-				HalfedgeIndex start;
-				HalfedgeIndex current;
-				FaceHalfedgeIterator(
-					const HalfedgeMesh* pMesh,
-					FaceIndex center,
-					bool positiveOrder,
-					bool end,
-					HalfedgeIndex start
-				) : pMesh(pMesh),
-					center(center),
-					positiveOrder(positiveOrder),
-					end(end || !pMesh || center.idx() >= pMesh->numFaces()),
-					start(
-						(this->end ?
-							HalfedgeIndex() :
-							(pMesh->halfedgeAssociatedFace(start) == center ?
-								start : pMesh->faceAssociatedHalfedge(center)))
-					),
-					current(this->start)
-				{
-					if (!this->start.valid())
-						this->end = true;
-				}
-				friend class FaceHalfedgeRange;
-				friend class FaceVertexIterator;
-				friend class FaceFaceIterator;
-				friend class FaceEdgeIterator;
-			};
-
-			/***********************************************************************
-			 * @class	FaceHalfedgeRange
-			 * @brief	Face-halfedge range class for iterating all halfedges
-			 *			around a face of a mesh.
-			 ***********************************************************************/
-			class FaceHalfedgeRange {
-
-			public:
-
-				using IteratorType = FaceHalfedgeIterator;
-
-				/** @brief	Get the iterator pointing to the first element.
-				  * @return	An iterator pointing to the first element.
-				  */
-				IteratorType begin(void) const {
-					return IteratorType(&this->mesh, this->center, this->positiveOrder, false, this->start);
-				}
-
-				/** @brief	Get the iterator referring to the past-the-end element.
-				  * @return	An iterator referring to the past-the-end element.
-				  */
-				IteratorType end(void) const {
-					return IteratorType(&this->mesh, this->center, this->positiveOrder, true, this->start);
-				}
-
-			private:
-				const HalfedgeMesh& mesh;
-				FaceIndex center;
-				bool positiveOrder;
-				HalfedgeIndex start;
-				FaceHalfedgeRange(const HalfedgeMesh& mesh, FaceIndex center, bool positiveOrder, HalfedgeIndex start) :
-					mesh(mesh),
-					center(center),
-					positiveOrder(positiveOrder),
-					start(start)
-				{}
-				friend class HalfedgeMesh;
-			};
-
-			/***********************************************************************
-			 * @class	FaceVertexIterator
-			 * @brief	Iterator class for FaceVertexRange.
-			 ***********************************************************************/
-			class FaceVertexIterator {
-
-			public:
-
-				using Self = FaceVertexIterator;
-				using DereferenceType = VertexIndex;
-
-				/** @brief	Default constructor.
-				  */
-				FaceVertexIterator(void) :
-					pMesh(nullptr),
-					iterator(),
-					current()
-				{}
-
-				/** @brief	Check whether this iterator is valid or not.
-				  * @return	`true` if this iterator is valid.
-				  */
-				bool valid(void) const {
-					return this->iterator.valid();
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType& operator*() const {
-					return this->current;
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType* operator->() const {
-					return &this->current;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Reference of the iterator after incrementing.
-				  */
-				Self& operator++(void) {
-					++this->iterator;
-					this->current = this->pMesh->halfedgeTargetVertex(*this->iterator);
-					return *this;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Copy of the iterator before incrementing.
-				  */
-				Self operator++(int) {
-					Self ret = *this;
-					++this->iterator;
-					this->current = this->pMesh->halfedgeTargetVertex(*this->iterator);
-					return ret;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs == rhs.
-				  */
-				bool operator==(const Self& other) const {
-					return this->iterator == other.iterator;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs != rhs.
-				  */
-				bool operator!=(const Self& other) const {
-					return !(this->operator==(other));
-				}
-
-			private:
-				const HalfedgeMesh* pMesh;
-				FaceHalfedgeIterator iterator;
-				DereferenceType current;
-				FaceVertexIterator(
-					const HalfedgeMesh* pMesh,
-					FaceIndex center,
-					bool positiveOrder,
-					bool end,
-					VertexIndex start
-				) : pMesh(pMesh),
-					iterator(pMesh, center, positiveOrder, end, HalfedgeIndex())
-				{
-					if (this->pMesh && center.idx() < this->pMesh->numFaces() && start.idx() < this->pMesh->numVertices()) {
-						bool find = false;
-						for (; this->iterator.valid(); ++this->iterator)
-							if (this->pMesh->halfedgeTargetVertex(*this->iterator) == start) {
-								find = true;
-								break;
-							}
-						this->iterator = FaceHalfedgeIterator(pMesh, center, positiveOrder, end, find ? *this->iterator : HalfedgeIndex());
-					}
-					if (this->pMesh && center.idx() < this->pMesh->numFaces()) {
-						this->current = this->pMesh->halfedgeTargetVertex(*this->iterator);
-					}
-				}
-				friend class FaceVertexRange;
-			};
-			
-			/***********************************************************************
-			 * @class	FaceVertexRange
-			 * @brief	Face-vertex range class for iterating all
-			 *			vertices around a face of a mesh.
-			 ***********************************************************************/
-			class FaceVertexRange {
-
-			public:
-
-				using IteratorType = FaceVertexIterator;
-
-				/** @brief	Get the iterator pointing to the first element.
-				  * @return	An iterator pointing to the first element.
-				  */
-				IteratorType begin(void) const {
-					return IteratorType(&this->mesh, this->center, this->positiveOrder, false, this->start);
-				}
-
-				/** @brief	Get the iterator referring to the past-the-end element.
-				  * @return	An iterator referring to the past-the-end element.
-				  */
-				IteratorType end(void) const {
-					return IteratorType(&this->mesh, this->center, this->positiveOrder, true, this->start);
-				}
-
-			private:
-				const HalfedgeMesh& mesh;
-				FaceIndex center;
-				bool positiveOrder;
-				VertexIndex start;
-				FaceVertexRange(const HalfedgeMesh& mesh, FaceIndex center, bool positiveOrder, VertexIndex start) :
-					mesh(mesh),
-					center(center),
-					positiveOrder(positiveOrder),
-					start(start)
-				{}
-				friend class HalfedgeMesh;
-			};
-
-			/***********************************************************************
-			 * @class	FaceFaceIterator
-			 * @brief	Iterator class for FaceFaceRange.
-			 ***********************************************************************/
-			class FaceFaceIterator {
-
-			public:
-
-				using Self = FaceFaceIterator;
-				using DereferenceType = FaceIndex;
-
-				/** @brief	Default constructor.
-				  */
-				FaceFaceIterator(void) :
-					pMesh(nullptr),
-					iterator(),
-					current()
-				{}
-
-				/** @brief	Check whether this iterator is valid or not.
-				  * @return	`true` if this iterator is valid.
-				  */
-				bool valid(void) const {
-					return this->iterator.valid();
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType& operator*() const {
-					return this->current;
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType* operator->() const {
-					return &this->current;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Reference of the iterator after incrementing.
-				  */
-				Self& operator++(void) {
-					++this->iterator;
-					this->current = this->pMesh->halfedgeAssociatedFace(this->pMesh->halfedgeOppositeHalfedge(*this->iterator));
-					return *this;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Copy of the iterator before incrementing.
-				  */
-				Self operator++(int) {
-					Self ret = *this;
-					++this->iterator;
-					this->current = this->pMesh->halfedgeAssociatedFace(this->pMesh->halfedgeOppositeHalfedge(*this->iterator));
-					return ret;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs == rhs.
-				  */
-				bool operator==(const Self& other) const {
-					return this->iterator == other.iterator;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs != rhs.
-				  */
-				bool operator!=(const Self& other) const {
-					return !(this->operator==(other));
-				}
-
-			private:
-				const HalfedgeMesh* pMesh;
-				FaceHalfedgeIterator iterator;
-				DereferenceType current;
-				FaceFaceIterator(
-					const HalfedgeMesh* pMesh,
-					FaceIndex center,
-					bool positiveOrder,
-					bool end,
-					FaceIndex start
-				) : pMesh(pMesh),
-					iterator(pMesh, center, positiveOrder, end, HalfedgeIndex())
-				{
-					if (this->pMesh && center.idx() < this->pMesh->numFaces() && start.idx() < this->pMesh->numFaces()) {
-						bool find = false;
-						for (; this->iterator.valid(); ++this->iterator)
-							if (this->pMesh->halfedgeAssociatedFace(this->pMesh->halfedgeOppositeHalfedge(*this->iterator)) == start) {
-								find = true;
-								break;
-							}
-						this->iterator = FaceHalfedgeIterator(pMesh, center, positiveOrder, end, find ? *this->iterator : HalfedgeIndex());
-					}
-					if (this->pMesh && center.idx() < this->pMesh->numFaces()) {
-						this->current = this->pMesh->halfedgeAssociatedFace(this->pMesh->halfedgeOppositeHalfedge(*this->iterator));
-					}
-				}
-				friend class FaceFaceRange;
-			};
-
-			/***********************************************************************
-			 * @class	FaceFaceRange
-			 * @brief	Face-face range class for iterating all adjacent faces of
-			 *			a face of a mesh.
-			 ***********************************************************************/
-			class FaceFaceRange {
-
-			public:
-
-				using IteratorType = FaceFaceIterator;
-
-				/** @brief	Get the iterator pointing to the first element.
-				  * @return	An iterator pointing to the first element.
-				  */
-				IteratorType begin(void) const {
-					return IteratorType(&this->mesh, this->center, this->positiveOrder, false, this->start);
-				}
-
-				/** @brief	Get the iterator referring to the past-the-end element.
-				  * @return	An iterator referring to the past-the-end element.
-				  */
-				IteratorType end(void) const {
-					return IteratorType(&this->mesh, this->center, this->positiveOrder, true, this->start);
-				}
-
-			private:
-				const HalfedgeMesh& mesh;
-				FaceIndex center;
-				bool positiveOrder;
-				FaceIndex start;
-				FaceFaceRange(const HalfedgeMesh& mesh, FaceIndex center, bool positiveOrder, FaceIndex start) :
-					mesh(mesh),
-					center(center),
-					positiveOrder(positiveOrder),
-					start(start)
-				{}
-				friend class HalfedgeMesh;
-			};
-
-			/***********************************************************************
-			 * @class	FaceEdgeIterator
-			 * @brief	Iterator class for FaceEdgeRange.
-			 ***********************************************************************/
-			class FaceEdgeIterator {
-
-			public:
-
-				using Self = FaceEdgeIterator;
-				using DereferenceType = EdgeIndex;
-
-				/** @brief	Default constructor.
-				  */
-				FaceEdgeIterator(void) :
-					pMesh(nullptr),
-					iterator(),
-					current()
-				{}
-
-				/** @brief	Check whether this iterator is valid or not.
-				  * @return	`true` if this iterator is valid.
-				  */
-				bool valid(void) const {
-					return this->iterator.valid();
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType& operator*() const {
-					return this->current;
-				}
-
-				/** @brief	Fetch the current element.
-				  * @return	The current element.
-				  */
-				const DereferenceType* operator->() const {
-					return &this->current;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Reference of the iterator after incrementing.
-				  */
-				Self& operator++(void) {
-					++this->iterator;
-					this->current = this->pMesh->halfedgeAssociatedEdge(*this->iterator);
-					return *this;
-				}
-
-				/** @brief	Increment the iterator.
-				  * @return	Copy of the iterator before incrementing.
-				  */
-				Self operator++(int) {
-					Self ret = *this;
-					++this->iterator;
-					this->current = this->pMesh->halfedgeAssociatedEdge(*this->iterator);
-					return ret;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs == rhs.
-				  */
-				bool operator==(const Self& other) const {
-					return this->iterator == other.iterator;
-				}
-
-				/** @brief	Compare two iterators.
-				  * @return	`true` if lhs != rhs.
-				  */
-				bool operator!=(const Self& other) const {
-					return !(this->operator==(other));
-				}
-
-			private:
-				const HalfedgeMesh* pMesh;
-				FaceHalfedgeIterator iterator;
-				DereferenceType current;
-				FaceEdgeIterator(
-					const HalfedgeMesh* pMesh,
-					FaceIndex center,
-					bool positiveOrder,
-					bool end,
-					EdgeIndex start
-				) : pMesh(pMesh),
-					iterator(pMesh, center, positiveOrder, end, HalfedgeIndex())
-				{
-					if (this->pMesh && center.idx() < this->pMesh->numFaces() && start.idx() < this->pMesh->numEdges()) {
-						bool find = false;
-						for (; this->iterator.valid(); ++this->iterator)
-							if (this->pMesh->halfedgeAssociatedEdge(*this->iterator) == start) {
-								find = true;
-								break;
-							}
-						this->iterator = FaceHalfedgeIterator(pMesh, center, positiveOrder, end, find ? *this->iterator : HalfedgeIndex());
-					}
-					if (this->pMesh && center.idx() < this->pMesh->numFaces()) {
-						this->current = this->pMesh->halfedgeAssociatedEdge(*this->iterator);
-					}
-				}
-				friend class FaceEdgeRange;
-			};
-
-			/***********************************************************************
-			 * @class	FaceEdgeRange
-			 * @brief	Face-edge range class for iterating all edges around
-			 *			a face of a mesh.
-			 ***********************************************************************/
-			class FaceEdgeRange {
-
-			public:
-
-				/** @brief	Get the iterator pointing to the first element.
-				  * @return	An iterator pointing to the first element.
-				  */
-				FaceEdgeIterator begin(void) const {
-					return FaceEdgeIterator(&this->mesh, this->center, this->positiveOrder, false, this->start);
-				}
-
-				/** @brief	Get the iterator referring to the past-the-end element.
-				  * @return	An iterator referring to the past-the-end element.
-				  */
-				FaceEdgeIterator end(void) const {
-					return FaceEdgeIterator(&this->mesh, this->center, this->positiveOrder, true, this->start);
-				}
-
-			private:
-				const HalfedgeMesh& mesh;
-				FaceIndex center;
-				bool positiveOrder;
-				EdgeIndex start;
-				FaceEdgeRange(const HalfedgeMesh& mesh, FaceIndex center, bool positiveOrder, EdgeIndex start) :
-					mesh(mesh),
-					center(center),
-					positiveOrder(positiveOrder),
-					start(start)
-				{}
-				friend class HalfedgeMesh;
-			};
-			
 			/** @}
 			  */
 
 		public:
 
+			template <class T>
+			BaseIterator<std::vector<T>> emplace_back(void);
+
+			template <class T>
+			BaseIterator<std::vector<T>> emplace(void);
+
 			std::size_t numVertices(void) const {
-				return this->vertexInfo.size();
+				return this->_vertices.size() - this->_removedVertices.size();
+			}
+
+			VertexRange vertices(void) {
+				return VertexRange(&this->_vertices, &this->_removedVertices);
+			}
+
+			VertexCRange vertices(void) const {
+				return VertexCRange(&this->_vertices, &this->_removedVertices);
+			}
+
+			VertexIter vertex(std::uint32_t offset) {
+				return VertexIter(&this->_vertices, offset);
+			}
+
+			VertexCIter vertex(std::uint32_t offset) const {
+				return VertexCIter(&this->_vertices, offset);
+			}
+
+			/** @brief	Emplace a vertex after the last position.
+			  * @return	Iterator pointing to the created vertex.
+			  */
+			template <>
+			VertexIter emplace_back(void) {
+				std::uint32_t offset = this->_vertices.size();
+				this->_vertices.emplace_back();
+				VertexIter ret(&this->_vertices, offset);
+				ret->_id = this->idCnt++;
+				return ret;
+			}
+
+			/** @brief	Emplace a vertex (may reuse the memory of a deleted vertex).
+			  * @return	Iterator pointing to the created vertex.
+			  */
+			template <>
+			VertexIter emplace(void) {
+				std::uint32_t offset;
+				if (this->_removedVertices.empty()) {
+					offset = this->_vertices.size();
+					this->_vertices.emplace_back();
+				}
+				else {
+					offset = this->_removedVertices.back();
+					this->_removedVertices.pop_back();
+				}
+				VertexIter ret(&this->_vertices, offset);
+				*ret = Vertex();
+				ret->_id = this->idCnt++;
+				return ret;
+			}
+
+			/** @brief	Remove the given vertex.
+			  * @return	`true` if successfully removed; `false` if already removed or invalid iterator.
+			  */
+			bool remove(VertexIter v) {
+				if (v.data == &this->_vertices && v.offset < this->_vertices.size() && !v->_removed) {
+					v->_removed = true;
+					this->_removedVertices.push_back(v.offset);
+					return true;
+				}
+				else return false;
 			}
 
 			std::size_t numHalfedges(void) const {
-				return this->halfedgeInfo.size();
+				return this->_halfedges.size() - this->_removedHalfedges.size();
+			}
+
+			HalfedgeRange halfedges(void) {
+				return HalfedgeRange(&this->_halfedges, &this->_removedHalfedges);
+			}
+
+			HalfedgeCRange halfedges(void) const {
+				return HalfedgeCRange(&this->_halfedges, &this->_removedHalfedges);
+			}
+
+			HalfedgeIter halfedge(std::uint32_t offset) {
+				return HalfedgeIter(&this->_halfedges, offset);
+			}
+
+			HalfedgeCIter halfedge(std::uint32_t offset) const {
+				return HalfedgeCIter(&this->_halfedges, offset);
+			}
+
+			/** @brief	Emplace a halfedge after the last position.
+			  * @return	Iterator pointing to the created halfedge.
+			  */
+			template <>
+			HalfedgeIter emplace_back(void) {
+				std::uint32_t offset = this->_halfedges.size();
+				this->_halfedges.emplace_back();
+				HalfedgeIter ret(&this->_halfedges, offset);
+				ret->_id = this->idCnt++;
+				return ret;
+			}
+
+			/** @brief	Emplace a halfedge (may reuse the memory of a deleted halfedge).
+			  * @return	Iterator pointing to the created halfedge.
+			  */
+			template <>
+			HalfedgeIter emplace(void) {
+				std::uint32_t offset;
+				if (this->_removedHalfedges.empty()) {
+					offset = this->_halfedges.size();
+					this->_halfedges.emplace_back();
+				}
+				else {
+					offset = this->_removedHalfedges.back();
+					this->_removedHalfedges.pop_back();
+				}
+				HalfedgeIter ret(&this->_halfedges, offset);
+				*ret = Halfedge();
+				ret->_id = this->idCnt++;
+				return ret;
+			}
+
+			/** @brief	Remove the given halfedge.
+			  * @return	`true` if successfully removed; `false` if already removed or invalid iterator.
+			  */
+			bool remove(HalfedgeIter h) {
+				if (h.data == &this->_halfedges && h.offset < this->_halfedges.size() && !h->_removed) {
+					h->_removed = true;
+					this->_removedHalfedges.push_back(h.offset);
+					return true;
+				}
+				else return false;
 			}
 
 			std::size_t numFaces(void) const {
-				return this->faceInfo.size();
+				return this->_faces.size() - this->_removedFaces.size();
+			}
+
+			FaceRange faces(void) {
+				return FaceRange(&this->_faces, &this->_removedFaces);
+			}
+
+			FaceCRange faces(void) const {
+				return FaceCRange(&this->_faces, &this->_removedFaces);
+			}
+
+			FaceIter face(std::uint32_t offset) {
+				return FaceIter(&this->_faces, offset);
+			}
+
+			FaceCIter face(std::uint32_t offset) const {
+				return FaceCIter(&this->_faces, offset);
+			}
+
+			/** @brief	Emplace a face after the last position.
+			  * @return	Iterator pointing to the created face.
+			  */
+			template <>
+			FaceIter emplace_back(void) {
+				std::uint32_t offset = this->_faces.size();
+				this->_faces.emplace_back();
+				FaceIter ret(&this->_faces, offset);
+				ret->_id = this->idCnt++;
+				return ret;
+			}
+
+			/** @brief	Emplace a face (may reuse the memory of a deleted face).
+			  * @return	Iterator pointing to the created face.
+			  */
+			template <>
+			FaceIter emplace(void) {
+				std::uint32_t offset;
+				if (this->_removedFaces.empty()) {
+					offset = this->_faces.size();
+					this->_faces.emplace_back();
+				}
+				else {
+					offset = this->_removedFaces.back();
+					this->_removedFaces.pop_back();
+				}
+				FaceIter ret(&this->_faces, offset);
+				*ret = Face();
+				ret->_id = this->idCnt++;
+				return ret;
+			}
+
+			/** @brief	Remove the given face.
+			  * @return	`true` if successfully removed; `false` if already removed or invalid iterator.
+			  */
+			bool remove(FaceIter f) {
+				if (f.data == &this->_faces && f.offset < this->_faces.size() && !f->_removed) {
+					f->_removed = true;
+					this->_removedFaces.push_back(f.offset);
+					return true;
+				}
+				else return false;
 			}
 
 			std::size_t numEdges(void) const {
-				return this->halfedgeInfo.size() / 2;
+				return this->_edges.size() - this->_removedEdges.size();
 			}
 
-			VertexRange vertices(void) const {
-				return VertexRange(*this);
+			EdgeRange edges(void) {
+				return EdgeRange(&this->_edges, &this->_removedEdges);
 			}
 
-			VertexIndex vertex(std::size_t pos) const {
-				return VertexIndex(pos);
+			EdgeCRange edges(void) const {
+				return EdgeCRange(&this->_edges, &this->_removedEdges);
 			}
 
-			HalfedgeRange halfedges(void) const {
-				return HalfedgeRange(*this);
+			EdgeIter edge(std::uint32_t offset) {
+				return EdgeIter(&this->_edges, offset);
 			}
 
-			HalfedgeIndex halfedge(std::size_t pos) const {
-				return HalfedgeIndex(pos);
+			EdgeCIter edge(std::uint32_t offset) const {
+				return EdgeCIter(&this->_edges, offset);
 			}
 
-			FaceRange faces(void) const {
-				return FaceRange(*this);
-			}
-
-			FaceIndex face(std::size_t pos) const {
-				return FaceIndex(pos);
-			}
-
-			EdgeRange edges(void) const {
-				return EdgeRange(*this);
-			}
-
-			EdgeIndex edge(std::size_t pos) const {
-				return EdgeIndex(pos);
-			}
-
-			VertexVertexRange vertexVertices(VertexIndex center, bool clockwise = true,VertexIndex start = VertexIndex()) const {
-				return VertexVertexRange(*this, center, clockwise, start);
-			}
-
-			/** @brief	Get the range to iterate over all halfedges starting from / pointing to the vertex.
-			  *
-			  * @param	center		Vertex whose associated halfedges need to be iterated.
-			  * @param	outgoing	`true` for outgoing halfedges and `false` for ingoing halfedges.
-			  * @param	clockwise	`true` for clockwise order and `false` for anti-clockwise order.
-			  * @param	start		The first halfedge to be iterated. If it is illegal then a default one will be chosen.
+			/** @brief	Emplace an edge after the last position.
+			  * @return	Iterator pointing to the created edge.
 			  */
-			VertexHalfedgeRange vertexHalfedges(VertexIndex center, bool outgoing, bool clockwise = true, HalfedgeIndex start = HalfedgeIndex()) const {
-				return VertexHalfedgeRange(*this, center, outgoing, clockwise, start);
+			template <>
+			EdgeIter emplace_back(void) {
+				std::uint32_t offset = this->_edges.size();
+				this->_edges.emplace_back();
+				EdgeIter ret(&this->_edges, offset);
+				ret->_id = this->idCnt++;
+				return ret;
 			}
 
-			VertexFaceRange vertexFaces(VertexIndex center, bool clockwise = true, FaceIndex start = FaceIndex()) const {
-				return VertexFaceRange(*this, center, clockwise, start);
-			}
-
-			VertexEdgeRange vertexEdges(VertexIndex center, bool clockwise = true, EdgeIndex start = EdgeIndex()) const {
-				return VertexEdgeRange(*this, center, clockwise, start);
-			}
-
-			FaceVertexRange faceVertices(FaceIndex center, bool positiveOrder = true, VertexIndex start = VertexIndex()) const {
-				return FaceVertexRange(*this, center, positiveOrder, start);
-			}
-
-			/** @brief	Constructor.
-			  *
-			  * @param	pMesh			Pointer to the halfedge mesh instance.
-			  *							If it is `nullptr`, this iterator will be an ending iterator.
-			  * @param	center			Face whose associated halfedges need to be iterated.
-			  *							If it is invalid, this iterator will be an ending iterator.
-			  * @param	positiveOrder	`true` for positive order and `false` for reverse order.
-			  * @param	start			The first halfedge to be iterated. If it is illegal then a default one will be chosen.
-			  * @param	end				`true` for constructing an ending iterator.
+			/** @brief	Emplace an edge (may reuse the memory of a deleted edge).
+			  * @return	Iterator pointing to the created edge.
 			  */
-			FaceHalfedgeRange faceHalfedges(FaceIndex center, bool positiveOrder = true, HalfedgeIndex start = HalfedgeIndex()) const {
-				return FaceHalfedgeRange(*this, center, positiveOrder, start);
-			}
-
-			FaceFaceRange faceFaces(FaceIndex center, bool positiveOrder = true, FaceIndex start = FaceIndex()) const {
-				return FaceFaceRange(*this, center, positiveOrder, start);
-			}
-
-			FaceEdgeRange faceEdges(FaceIndex center, bool positiveOrder = true, EdgeIndex start = EdgeIndex()) const {
-				return FaceEdgeRange(*this, center, positiveOrder, start);
-			}
-
-			HalfedgeIndex vertexOutgoingHalfedge(VertexIndex vertex) const {
-				return vertex.idx() < this->numVertices() ?
-					this->vertexInfo[vertex.idx()].halfedge :
-					HalfedgeIndex();
-			}
-
-			HalfedgeIndex vertexIngoingHalfedge(VertexIndex vertex) const {
-				return this->halfedgeOppositeHalfedge(this->vertexOutgoingHalfedge(vertex));
-			}
-
-			VertexIndex halfedgeSourceVertex(HalfedgeIndex halfedge) const {
-				return this->halfedgeTargetVertex(this->halfedgeOppositeHalfedge(halfedge));
-			}
-
-			VertexIndex halfedgeTargetVertex(HalfedgeIndex halfedge) const {
-				return halfedge.idx() < this->numHalfedges() ?
-					this->halfedgeInfo[halfedge.idx()].target :
-					VertexIndex();
-			}
-
-			HalfedgeIndex halfedgeOppositeHalfedge(HalfedgeIndex halfedge) const {
-				return halfedge.idx() < this->numHalfedges() ?
-					((halfedge.idx() % 2) ? (halfedge - 1) : (halfedge + 1)) :
-					HalfedgeIndex();
-			}
-
-			HalfedgeIndex halfedgeNextHalfedge(HalfedgeIndex halfedge) const {
-				return halfedge.idx() < this->numHalfedges() ? 
-					this->halfedgeInfo[halfedge.idx()].next :
-					HalfedgeIndex();
-			}
-
-			HalfedgeIndex halfedgePreviousHalfedge(HalfedgeIndex halfedge) const {
-				return halfedge.idx() < this->numHalfedges() ?
-					this->halfedgeInfo[halfedge.idx()].prev :
-					HalfedgeIndex();
-			}
-
-			FaceIndex halfedgeAssociatedFace(HalfedgeIndex halfedge) const {
-				return halfedge.idx() < this->numHalfedges() ?
-					this->halfedgeInfo[halfedge.idx()].face :
-					FaceIndex();
-			}
-
-			EdgeIndex halfedgeAssociatedEdge(HalfedgeIndex halfedge) const {
-				return halfedge.idx() < this->numHalfedges() ?
-					EdgeIndex(halfedge.idx() / 2) :
-					EdgeIndex();
-			}
-
-			HalfedgeIndex faceAssociatedHalfedge(FaceIndex face) const {
-				return face.idx() < this->numFaces() ?
-					this->faceInfo[face.idx()].halfedge :
-					HalfedgeIndex();
-			}
-
-			/** @brief	Get the associated halfedge of the edge.
-			  *
-			  * @param	edge		Vertex whose associated halfedges need to be iterated.
-			  * @param	dir			`true` if the halfedge points from a smaller vertex to a bigger vertex.
-			  */
-			HalfedgeIndex edgeAssociatedHalfedge(EdgeIndex edge, bool dir) const {
-				return edge.idx() < this->numEdges() ?
-					(dir ?
-						HalfedgeIndex(edge.idx() * 2) :
-						HalfedgeIndex(edge.idx() * 2 + 1)) :
-					HalfedgeIndex();
-			}
-
-			HalfedgeMesh(void) {}
-
-			void reset(void) {
-
-			}
-
-			bool load(
-				std::vector<Eigen::Vector3d> points,
-				std::vector<std::vector<int>> faces
-			) {
-				this->reset();
-				this->vertexInfo.resize(points.size());
-				this->halfedgeInfo.reserve(faces.size() * 3);
-				this->faceInfo.resize(faces.size());
-				std::map<std::pair<VertexIndex, VertexIndex>, EdgeIndex> edges;
-				for (int fi = 0; fi < faces.size(); fi++) {
-					const auto& f = faces[fi];
-					std::vector<HalfedgeIndex> faceHalfedges(f.size());
-					for (int hi = 0; hi < f.size(); hi++) {
-						VertexIndex v1(f[(hi - 1 + f.size()) % f.size()]);
-						VertexIndex v2(f[hi]);
-						bool dir;
-						std::pair<VertexIndex, VertexIndex> key;
-						if (v1 > v2) {
-							dir = false;
-							key = { v2, v1 };
-						}
-						else {
-							dir = true;
-							key = { v1, v2 };
-						}
-						EdgeIndex& edge = edges[key];
-						if (!edge.valid()) {
-							edge = EdgeIndex(edges.size() - 1);
-							this->halfedgeInfo.emplace_back();
-							this->halfedgeInfo.emplace_back();
-						}
-						faceHalfedges[hi] = this->edgeAssociatedHalfedge(edge, dir);
-					}
-					for (int hi = 0; hi < f.size(); hi++) {
-						VertexIndex v1(f[(hi - 1 + f.size()) % f.size()]);
-						VertexIndex v2(f[hi]);
-						//If this halfedge's face is already set, the mesh is not a valid mesh for halfedge structure.
-						if (this->halfedgeInfo[faceHalfedges[hi].idx()].face.valid()) {
-							this->reset();
-							return false;
-						}
-						//Set vertex v1 if its halfedge is not set
-						if (!this->vertexInfo[v1.idx()].halfedge.valid())
-							this->vertexInfo[v1.idx()].halfedge = faceHalfedges[hi];
-						//Set halfedge hi
-						this->halfedgeInfo[faceHalfedges[hi].idx()].next = faceHalfedges[(hi + 1) % f.size()];
-						this->halfedgeInfo[faceHalfedges[hi].idx()].prev = faceHalfedges[(hi - 1 + f.size()) % f.size()];
-						this->halfedgeInfo[faceHalfedges[hi].idx()].target = v2;
-						this->halfedgeInfo[faceHalfedges[hi].idx()].face = FaceIndex(fi);
-						//Set the opposite halfedge's vertices
-						HalfedgeIndex oppoHalfedge = this->halfedgeOppositeHalfedge(faceHalfedges[hi]);
-						this->halfedgeInfo[oppoHalfedge.idx()].target = v1;
-					}
-					//set face fi if its halfedge is not set
-					this->faceInfo[fi].halfedge = faceHalfedges[0];
+			template <>
+			EdgeIter emplace(void) {
+				std::uint32_t offset;
+				if (this->_removedEdges.empty()) {
+					offset = this->_edges.size();
+					this->_edges.emplace_back();
 				}
-				return true;
+				else {
+					offset = this->_removedEdges.back();
+					this->_removedEdges.pop_back();
+				}
+				EdgeIter ret(&this->_edges, offset);
+				*ret = Edge();
+				ret->_id = this->idCnt++;
+				return ret;
 			}
+
+			/** @brief	Remove the given edge.
+			  * @return	`true` if successfully removed; `false` if already removed or invalid iterator.
+			  */
+			bool remove(EdgeIter e) {
+				if (e.data == &this->_edges && e.offset < this->_edges.size() && !e->_removed) {
+					e->_removed = true;
+					this->_removedEdges.push_back(e.offset);
+					return true;
+				}
+				else return false;
+			}
+
+			HalfedgeMesh(void) : idCnt(0) {}
+
+			/** @brief	Remove all elements in the mesh.
+			  */
+			void clear(void) {
+				this->_vertices.clear(); this->_removedVertices.clear();
+				this->_halfedges.clear(); this->_removedHalfedges.clear();
+				this->_faces.clear(); this->_removedFaces.clear();
+				this->_edges.clear(); this->_removedEdges.clear();
+				this->idCnt = 0;
+			}
+
+			/** @brief Garbage collection.
+			  * 
+			  * HalfedgeMesh class uses a lazy way to remove elements. When vertices/halfedges/faces/edges
+			  * are removed, they are simply "labeled" to be removed, but are not actually deleted from the memory.
+			  * In order to clean the memory, you need to explicitly call this method.
+			  * Once finished, all existing iterators will be invalidated.
+			  */
+			void collectGarbage(void) {
+				// create mapping
+				std::vector<std::uint32_t> vertex_mapping(this->_vertices.size());
+				std::vector<std::uint32_t> halfedge_mapping(this->_halfedges.size());
+				std::vector<std::uint32_t> face_mapping(this->_faces.size());
+				std::vector<std::uint32_t> edge_mapping(this->_edges.size());
+				for (uint32_t offset = 0, cnt = 0; offset < this->_vertices.size(); ++offset) {
+					vertex_mapping[offset] = cnt;
+					if (!this->_vertices[offset]._removed)
+						++cnt;
+				}
+				for (uint32_t offset = 0, cnt = 0; offset < this->_halfedges.size(); ++offset) {
+					halfedge_mapping[offset] = cnt;
+					if (!this->_halfedges[offset]._removed)
+						++cnt;
+				}
+				for (uint32_t offset = 0, cnt = 0; offset < this->_faces.size(); ++offset) {
+					face_mapping[offset] = cnt;
+					if (!this->_faces[offset]._removed)
+						++cnt;
+				}
+				for (uint32_t offset = 0, cnt = 0; offset < this->_edges.size(); ++offset) {
+					edge_mapping[offset] = cnt;
+					if (!this->_edges[offset]._removed)
+						++cnt;
+				}
+				// update connectivity
+				for (uint32_t offset = 0, cnt = 0; offset < this->_vertices.size(); ++offset, ++cnt) {
+					while (cnt < this->_vertices.size() && this->_vertices[cnt]._removed) ++cnt;
+					if (cnt == this->_vertices.size())
+						break;
+					Vertex& v = this->_vertices[offset];
+					v = this->_vertices[cnt];
+					v.halfedge.offset = halfedge_mapping[v.halfedge.offset];
+				}
+				this->_vertices.resize(this->numVertices());
+				this->_removedVertices.clear();
+				for (uint32_t offset = 0, cnt = 0; offset < this->_halfedges.size(); ++offset, ++cnt) {
+					while (cnt < this->_halfedges.size() && this->_halfedges[cnt]._removed) ++cnt;
+					if (cnt == this->_halfedges.size())
+						break;
+					Halfedge& h = this->_halfedges[offset];
+					h = this->_halfedges[cnt];
+					h.next.offset = halfedge_mapping[h.next.offset];
+					h.prev.offset = halfedge_mapping[h.prev.offset];
+					h.twin.offset = halfedge_mapping[h.twin.offset];
+					h.source.offset = vertex_mapping[h.source.offset];
+					h.edge.offset = edge_mapping[h.edge.offset];
+					h.face.offset = face_mapping[h.face.offset];
+				}
+				this->_halfedges.resize(this->numHalfedges());
+				this->_removedHalfedges.clear();
+				for (uint32_t offset = 0, cnt = 0; offset < this->_faces.size(); ++offset, ++cnt) {
+					while (cnt < this->_faces.size() && this->_faces[cnt]._removed) ++cnt;
+					if (cnt == this->_faces.size())
+						break;
+					Face& f = this->_faces[offset];
+					f = this->_faces[cnt];
+					f.halfedge.offset = halfedge_mapping[f.halfedge.offset];
+				}
+				this->_faces.resize(this->numFaces());
+				this->_removedFaces.clear();
+				for (uint32_t offset = 0, cnt = 0; offset < this->_edges.size(); ++offset, ++cnt) {
+					while (cnt < this->_edges.size() && this->_edges[cnt]._removed) ++cnt;
+					if (cnt == this->_edges.size())
+						break;
+					Edge& e = this->_edges[offset];
+					e = this->_edges[cnt];
+					e.halfedge.offset = halfedge_mapping[e.halfedge.offset];
+				}
+				this->_edges.resize(this->numEdges());
+				this->_removedEdges.clear();
+			}
+
+			//bool load(
+			//	std::vector<Eigen::Vector3d> points,
+			//	std::vector<std::vector<int>> faces
+			//) {
+			//	this->reset();
+			//	this->vertexInfo.resize(points.size());
+			//	this->halfedgeInfo.reserve(faces.size() * 3);
+			//	this->faceInfo.resize(faces.size());
+			//	std::map<std::pair<VertexIndex, VertexIndex>, EdgeIndex> edges;
+			//	for (int fi = 0; fi < faces.size(); fi++) {
+			//		const auto& f = faces[fi];
+			//		std::vector<HalfedgeIndex> faceHalfedges(f.size());
+			//		for (int hi = 0; hi < f.size(); hi++) {
+			//			VertexIndex v1(f[(hi - 1 + f.size()) % f.size()]);
+			//			VertexIndex v2(f[hi]);
+			//			bool dir;
+			//			std::pair<VertexIndex, VertexIndex> key;
+			//			if (v1 > v2) {
+			//				dir = false;
+			//				key = { v2, v1 };
+			//			}
+			//			else {
+			//				dir = true;
+			//				key = { v1, v2 };
+			//			}
+			//			EdgeIndex& edge = edges[key];
+			//			if (!edge.valid()) {
+			//				edge = EdgeIndex(edges.size() - 1);
+			//				this->halfedgeInfo.emplace_back();
+			//				this->halfedgeInfo.emplace_back();
+			//			}
+			//			faceHalfedges[hi] = this->edgeAssociatedHalfedge(edge, dir);
+			//		}
+			//		for (int hi = 0; hi < f.size(); hi++) {
+			//			VertexIndex v1(f[(hi - 1 + f.size()) % f.size()]);
+			//			VertexIndex v2(f[hi]);
+			//			//If this halfedge's face is already set, the mesh is not a valid mesh for halfedge structure.
+			//			if (this->halfedgeInfo[faceHalfedges[hi].idx()].face.valid()) {
+			//				this->reset();
+			//				return false;
+			//			}
+			//			//Set vertex v1 if its halfedge is not set
+			//			if (!this->vertexInfo[v1.idx()].halfedge.valid())
+			//				this->vertexInfo[v1.idx()].halfedge = faceHalfedges[hi];
+			//			//Set halfedge hi
+			//			this->halfedgeInfo[faceHalfedges[hi].idx()].next = faceHalfedges[(hi + 1) % f.size()];
+			//			this->halfedgeInfo[faceHalfedges[hi].idx()].prev = faceHalfedges[(hi - 1 + f.size()) % f.size()];
+			//			this->halfedgeInfo[faceHalfedges[hi].idx()].target = v2;
+			//			this->halfedgeInfo[faceHalfedges[hi].idx()].face = FaceIndex(fi);
+			//			//Set the opposite halfedge's vertices
+			//			HalfedgeIndex oppoHalfedge = this->halfedgeOppositeHalfedge(faceHalfedges[hi]);
+			//			this->halfedgeInfo[oppoHalfedge.idx()].target = v1;
+			//		}
+			//		//set face fi if its halfedge is not set
+			//		this->faceInfo[fi].halfedge = faceHalfedges[0];
+			//	}
+			//	return true;
+			//}
 
 		private:
 
-			struct VertexInfo {
-				HalfedgeIndex halfedge;
-				bool removed;
-				VertexInfo(void) : halfedge(), removed(false) {}
-			};
-			struct HalfedgeInfo {
-				HalfedgeIndex next;
-				HalfedgeIndex prev;
-				//There's no need to define `HalfedgeIndex oppo;`.
-				VertexIndex target;
-				FaceIndex face;
-				bool removed;
-				HalfedgeInfo(void) : next(), prev(), target(), face(), removed(false) {}
-			};
-			struct FaceInfo {
-				HalfedgeIndex halfedge;
-				bool removed;
-				FaceInfo(void) : halfedge(), removed(false) {}
-			};
+			std::vector<Vertex> _vertices; std::vector<std::uint32_t> _removedVertices;
+			std::vector<Halfedge> _halfedges; std::vector<std::uint32_t> _removedHalfedges;
+			std::vector<Face> _faces; std::vector<std::uint32_t> _removedFaces;
+			std::vector<Edge> _edges; std::vector<std::uint32_t> _removedEdges;
 
-			std::vector<VertexInfo> vertexInfo;
-			std::vector<HalfedgeInfo> halfedgeInfo;
-			std::vector<FaceInfo> faceInfo;
-			//There's no need to define `std::vector<EdgeInfo> _edges;`.
+			std::uint32_t idCnt;
 
 		};
 

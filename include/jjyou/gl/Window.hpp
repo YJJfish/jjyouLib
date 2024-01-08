@@ -313,7 +313,7 @@ namespace jjyou {
 			  */
 			//@{
 			static ModelView<1> modelView;
-			static CameraView cameraView;
+			static FirstPersonView cameraView;
 			//@}
 
 			/** @name	Mouse state
@@ -521,10 +521,251 @@ namespace jjyou {
 		template<int ID> int Object3DViewer<ID>::windowWidth = 0;
 		template<int ID> int Object3DViewer<ID>::windowHeight = 0;
 		template<int ID> ModelView<1> Object3DViewer<ID>::modelView;
-		template<int ID> CameraView Object3DViewer<ID>::cameraView;
+		template<int ID> FirstPersonView Object3DViewer<ID>::cameraView;
 		template<int ID> double Object3DViewer<ID>::cursorX = 0.0;
 		template<int ID> double Object3DViewer<ID>::cursorY = 0.0;
 		template<int ID> std::chrono::steady_clock::time_point Object3DViewer<ID>::mouseButtonLeftPressTime;
+
+
+		/***********************************************************************
+		 * @class Scene3DViewer
+		 * @brief Inherited from jjyou::gl::Window for viewing the scene in 3d space.
+		 *
+		 * This window class is used for viewing the scene in 3d space.
+		 * It has predefined window size callback, framebuffer size callback,
+		 * mouse button callback, cursor position callback, and scroll callback.
+		 * It maintains a jjyou::gl::SceneView instance to compute the camera
+		 * view matrices for shaders.
+		 * Pressing the right mouse button and moving the cursor can translate
+		 * the camera view.
+		 * Scrolling the middle mouse button and moving the cursor can rotate
+		 * the camera view.
+		 * Scrolling the middle mouse button can scale the model view.
+		 * Double-click the left mouse button can reset the model view.
+		 * The camera in default pose.
+		 * To create an instance of this window, you need to provide a unique
+		 * template parameter `int ID`. You cannot instantiate more than one
+		 * window with the same ID. Also, you need to provide the y-fov, the near
+		 * and far clip planes to compute the perspective projection matrix.
+		 *
+		 * @tparam ID	The unique ID for the window.
+		 ***********************************************************************/
+		template <int ID>
+		class Scene3DViewer : public Window<ID> {
+		public:
+
+			/** @name	Viewer attributes
+			  *
+			  * @note	Do not modify `frameWidth`, `frameHeight`,
+			  *			`windowWidth`, and `windowHeight`.
+			  *			If you want to resize the frame buffer or
+			  *			the window, call `glfwSetWindowSize`. These
+			  *			variables will be updated by callback funcions.
+			  */
+			  //@{
+			static GLfloat yFov;
+			static GLfloat aspectRatio;
+			static GLfloat zNear;
+			static GLfloat zFar;
+			static int frameWidth;
+			static int frameHeight;
+			static int windowWidth;
+			static int windowHeight;
+			//@}
+
+			/** @name	Camera view
+			  */
+			  //@{
+			static SceneView cameraView;
+			//@}
+
+			/** @name	Mouse state
+			  * @note	Do not modify these variables. They will be
+			  *			updated by callback funcions.
+			  */
+			  //@{
+			static double cursorX;
+			static double cursorY;
+			static std::chrono::steady_clock::time_point mouseButtonLeftPressTime;
+			//@}
+
+			/** @name	Predefined callback functions
+			  */
+			  //@{
+			static void defaultWindowSizeCallback(GLFWwindow* window, int width, int height) {
+				Scene3DViewer<ID>::windowWidth = width;
+				Scene3DViewer<ID>::windowHeight = height;
+			}
+			static void defaultFrameBufferSizeCallback(GLFWwindow* window, int width, int height) {
+				Scene3DViewer<ID>::frameWidth = width;
+				Scene3DViewer<ID>::frameHeight = height;
+				Scene3DViewer<ID>::aspectRatio = (GLfloat)width / height;
+				glViewport(0, 0, width, height);
+			}
+			static void defaultMouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+				if (ImGui::GetIO().WantCaptureMouse)
+					return;
+				auto now = std::chrono::steady_clock::now();
+				if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+					if ((now - Scene3DViewer<ID>::mouseButtonLeftPressTime).count() <= 200000000)
+						Scene3DViewer<ID>::cameraView.reset();
+					Scene3DViewer<ID>::mouseButtonLeftPressTime = now;
+				}
+			}
+			static void defaultCursorPosCallback(GLFWwindow* window, double xPos, double yPos) {
+				if (ImGui::GetIO().WantCaptureMouse) {
+					cursorX = xPos;
+					cursorY = yPos;
+					return;
+				}
+				if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+				}
+				else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
+					cameraView.moveUp(0.001f * (yPos - cursorY));
+					cameraView.moveLeft(0.001f * (xPos - cursorX));
+				}
+				else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS) {
+					cameraView.turn(0.002f * (xPos - cursorX), 0.002f * (cursorY - yPos), 0.0f);
+				}
+				cursorX = xPos;
+				cursorY = yPos;
+			}
+			static void defaultScrollCallback(GLFWwindow* window, double xOffset, double yOffset) {
+				if (ImGui::GetIO().WantCaptureMouse)
+					return;
+				if (yOffset < 0.0f)
+					cameraView.zoomOut(1.2f);
+				else
+					cameraView.zoomIn(1.2f);
+			}
+			//@}
+
+		public:
+
+			/** @brief Instantiate a window for the given ID.
+			  *
+			  * @note You cannot instantiate more than one
+			  * window with the same ID. \n
+			  */
+			Scene3DViewer(void) : Window<ID>() {}
+
+			/** @brief Destructor.
+			  */
+			~Scene3DViewer(void) {}
+
+			/** @brief Initialize glfw library and create a glfw window.
+			  *
+			  * If the user do not set the window size / frame buffer size /
+			  * mouse button / cursor position / scroll callback functions,
+			  * the predefined callback functions will be registered.
+			  *
+			  * @param windowWidth		width of the window.
+			  * @param windowHeight		height of the window.
+			  * @param windowTitle		title of the window.
+			  *	@param yFov				vertical field of view.
+			  * @param zNear			z coordinate of the near clip plane.
+			  * @param zFar				z coordinate of the far clip plane.
+			  * @return `true` if the window is created.
+			  */
+			bool createGLFWWindow(
+				int windowWidth = 500,
+				int windowHeight = 500,
+				const std::string& windowTitle = Window<ID>::windowTitle,
+				GLfloat yFov = std::numbers::pi_v<GLfloat> / 3.0f,
+				GLfloat zNear = 0.01f,
+				GLfloat zFar = 500.0f
+			) {
+				//create window
+				if (!Window<ID>::createGLFWWindow(windowWidth, windowHeight, windowTitle))
+					return false;
+				//set viewer attributes
+				glfwGetFramebufferSize(Window<ID>::window, &Scene3DViewer<ID>::frameWidth, &Scene3DViewer<ID>::frameHeight);
+				glfwGetWindowSize(Window<ID>::window, &Scene3DViewer<ID>::windowWidth, &Scene3DViewer<ID>::windowHeight);
+				Scene3DViewer<ID>::yFov = yFov;
+				Scene3DViewer<ID>::aspectRatio = (GLfloat)Scene3DViewer<ID>::frameWidth / Scene3DViewer<ID>::frameHeight;
+				Scene3DViewer<ID>::zNear = zNear;
+				Scene3DViewer<ID>::zFar = zFar;
+				//reset camera&model matrix
+				Scene3DViewer<ID>::cameraView.reset();
+				//initialize window state
+				glfwGetCursorPos(Window<ID>::window, &Scene3DViewer<ID>::cursorX, &Scene3DViewer<ID>::cursorY);
+				//config window
+				glfwSetInputMode(this->window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+				if (Window<ID>::windowSizeFunc == nullptr)
+					Window<ID>::windowSizeFunc = Scene3DViewer<ID>::defaultWindowSizeCallback;
+				if (Window<ID>::frameBufferSizeFunc == nullptr)
+					Window<ID>::frameBufferSizeFunc = Scene3DViewer<ID>::defaultFrameBufferSizeCallback;
+				if (Window<ID>::mouseButtonFunc == nullptr)
+					Window<ID>::mouseButtonFunc = Scene3DViewer<ID>::defaultMouseButtonCallback;
+				if (Window<ID>::cursorPosFunc == nullptr)
+					Window<ID>::cursorPosFunc = Scene3DViewer<ID>::defaultCursorPosCallback;
+				if (Window<ID>::scrollFunc == nullptr)
+					Window<ID>::scrollFunc = Scene3DViewer<ID>::defaultScrollCallback;
+				Window<ID>::registerCallbacks();
+				//init imgui
+				IMGUI_CHECKVERSION();
+				ImGui::CreateContext();
+				ImGui_ImplGlfw_InitForOpenGL(Window<ID>::window, true);
+				ImGui_ImplOpenGL3_Init("#version 330");
+				ImGui::StyleColorsDark();
+				return true;
+			}
+
+			/* @name Compute uniform variables for passing to shaders
+			 */
+			 //@{
+			 /* @brief Compute model matrix.
+			  * @return the model matrix for `modelMatrix` uniform variable in shaders
+			  */
+			glm::mat4 getModelMatrix(void) {
+				return glm::identity<glm::mat4>();
+			}
+
+			/* @brief Compute view matrix.
+			 * @return the view matrix for `viewMatrix` uniform variable in shaders
+			 */
+			glm::mat4 getViewMatrix(void) {
+				return Scene3DViewer<ID>::cameraView.getViewMatrix();
+			}
+
+			/* @brief Compute normal matrix.
+			 * @return the normal matrix for `normalMatrix` uniform variable in shaders
+			 */
+			glm::mat4 getNormalMatrix(void) {
+				return glm::mat3(glm::transpose(glm::inverse(Scene3DViewer<ID>::getViewMatrix())));
+			}
+
+			/* @brief Compute projection matrix.
+			 * @return the projection matrix for `projectionMatrix` uniform variable in shaders
+			 */
+			glm::mat4 getProjectionMatrix(void) {
+				return glm::perspective(
+					Scene3DViewer<ID>::yFov,
+					Scene3DViewer<ID>::aspectRatio,
+					Scene3DViewer<ID>::zNear, Scene3DViewer<ID>::zFar
+				);
+			}
+
+			/* @brief Compute view position (i.e. camera position).
+			 * @return the view position vector for `viewPosition` uniform variable in shaders
+			 */
+			glm::vec3 getViewPosition(void) {
+				return Scene3DViewer<ID>::cameraView.getPos();
+			}
+			//@}
+		};
+		template<int ID> GLfloat Scene3DViewer<ID>::yFov = std::numbers::pi_v<GLfloat> / 3.0f;
+		template<int ID> GLfloat Scene3DViewer<ID>::aspectRatio = 1.0f;
+		template<int ID> GLfloat Scene3DViewer<ID>::zNear = 0.01f;
+		template<int ID> GLfloat Scene3DViewer<ID>::zFar = 500.0f;
+		template<int ID> int Scene3DViewer<ID>::frameWidth = 0;
+		template<int ID> int Scene3DViewer<ID>::frameHeight = 0;
+		template<int ID> int Scene3DViewer<ID>::windowWidth = 0;
+		template<int ID> int Scene3DViewer<ID>::windowHeight = 0;
+		template<int ID> SceneView Scene3DViewer<ID>::cameraView;
+		template<int ID> double Scene3DViewer<ID>::cursorX = 0.0;
+		template<int ID> double Scene3DViewer<ID>::cursorY = 0.0;
+		template<int ID> std::chrono::steady_clock::time_point Scene3DViewer<ID>::mouseButtonLeftPressTime;
 	}
 }
 #endif /* jjyou_gl_Window_hpp */

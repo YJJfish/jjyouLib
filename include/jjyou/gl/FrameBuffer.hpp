@@ -2,7 +2,8 @@
  * @file	FrameBuffer.hpp
  * @author	jjyou
  * @date	2023-5-23
- * @brief	This file implements FrameBuffer class.
+ * @brief	This file implements FrameBuffer class,
+ *			a wrapper class for OpenGL framebuffer object.
 ***********************************************************************/
 #ifndef jjyou_gl_FrameBuffer_hpp
 #define jjyou_gl_FrameBuffer_hpp
@@ -22,16 +23,38 @@ namespace jjyou {
 				Texture2D = 1,
 				RenderBuffer = 2
 			};
+			//https://docs.gl/es3/glTexImage2D
+			//https://docs.gl/gl4/glTexImage2D
+			struct Attachment {
+				AttachType attachType;
+				GLuint index;
+				GLenum internalFormat;
+				GLenum format;
+				GLenum type;
+				Attachment(void) {
+					this->reset();
+				}
+				void set(AttachType attachType, GLuint index, GLenum internalFormat, GLenum format, GLenum type) {
+					this->attachType = attachType;
+					this->index = index;
+					this->internalFormat = internalFormat;
+					this->format = format;
+					this->type = type;
+				}
+				void reset(void) {
+					this->attachType = AttachType::NotAttached;
+					this->index = 0;
+					this->internalFormat = 0;
+					this->format = 0;
+					this->type = 0;
+				}
+			};
 			FrameBuffer(GLsizei width, GLsizei height) :
-				_width(width), _height(height),
-				depthAttachment(0), depthAttachFormat(0), depthAttachType(AttachType::NotAttached),
-				stencilAttachment(0), stencilAttachFormat(0), stencilAttachType(AttachType::NotAttached)
+				width(width), height(height)
 			{
 				glGenFramebuffers(1, &this->fbo);
 				glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &this->maxAttachments);
-				this->colorAttachments.resize(this->maxAttachments, 0);
-				this->colorAttachFormat.resize(this->maxAttachments, 0);
-				this->colorAttachType.resize(this->maxAttachments, AttachType::NotAttached);
+				this->colorAttachments.resize(this->maxAttachments);
 			}
 			void bind(void) {
 				glBindFramebuffer(GL_FRAMEBUFFER, this->fbo);
@@ -39,171 +62,198 @@ namespace jjyou {
 			bool resize(GLsizei width, GLsizei height) {
 				if (width <= 0 || height <= 0)
 					return false;
-				if (this->_width == width && this->_height == height)
+				if (this->width == width && this->height == height)
 					return true;
-				this->_width = width;
-				this->_height = height;
+				this->width = width;
+				this->height = height;
+				this->bind();
 				//color
-				for (int index = 0; index < this->maxAttachments; index++)
-					if (this->colorAttachType[index] == AttachType::Texture2D) {
-						glBindTexture(GL_TEXTURE_2D, this->colorAttachments[index]);
-						glTexStorage2D(GL_TEXTURE_2D, 1, this->colorAttachFormat[index], this->_width, this->_height);
-						glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index, GL_TEXTURE_2D, this->colorAttachments[index], 0);
+				for (int index = 0; index < this->maxAttachments; index++) {
+					Attachment& colorAttachment = this->colorAttachments[index];
+					if (colorAttachment.attachType == AttachType::Texture2D) {
+						glBindTexture(GL_TEXTURE_2D, colorAttachment.index);
+						//TODO: use glTexStorage2D sometimes
+						glTexImage2D(GL_TEXTURE_2D, 0, colorAttachment.internalFormat, this->width, this->height, 0, colorAttachment.format, colorAttachment.type, nullptr);
+						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+						glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index, GL_TEXTURE_2D, colorAttachment.index, 0);
 					}
-					else if (this->colorAttachType[index] == AttachType::RenderBuffer) {
-						glBindRenderbuffer(GL_RENDERBUFFER, this->colorAttachments[index]);
-						glRenderbufferStorage(GL_RENDERBUFFER, this->colorAttachFormat[index], this->_width, this->_height);
-						glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index, GL_RENDERBUFFER, this->colorAttachments[index]);
+					else if (colorAttachment.attachType == AttachType::RenderBuffer) {
+						glBindRenderbuffer(GL_RENDERBUFFER, colorAttachment.index);
+						glRenderbufferStorage(GL_RENDERBUFFER, colorAttachment.format, this->width, this->height);
+						glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index, GL_RENDERBUFFER, colorAttachment.index);
 					}
-				//depth
-				if (this->depthAttachType == AttachType::Texture2D) {
-					glBindTexture(GL_TEXTURE_2D, this->depthAttachment);
-					glTexStorage2D(GL_TEXTURE_2D, 1, this->depthAttachFormat, this->_width, this->_height);
-					glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, this->depthAttachment, 0);
 				}
-				else if (this->depthAttachType == AttachType::RenderBuffer) {
-					glBindRenderbuffer(GL_RENDERBUFFER, this->depthAttachment);
-					glRenderbufferStorage(GL_RENDERBUFFER, this->depthAttachFormat, this->_width, this->_height);
-					glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->depthAttachment);
+				//depth
+				if (this->depthAttachment.attachType == AttachType::Texture2D) {
+					glBindTexture(GL_TEXTURE_2D, this->depthAttachment.index);
+					glTexImage2D(GL_TEXTURE_2D, 0, this->depthAttachment.internalFormat, this->width, this->height, 0, this->depthAttachment.format, this->depthAttachment.type, nullptr);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+					glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, this->depthAttachment.index, 0);
+				}
+				else if (this->depthAttachment.attachType == AttachType::RenderBuffer) {
+					glBindRenderbuffer(GL_RENDERBUFFER, this->depthAttachment.index);
+					glRenderbufferStorage(GL_RENDERBUFFER, this->depthAttachment.format, this->width, this->height);
+					glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->depthAttachment.index);
 				}
 				//stencil
-				if (this->stencilAttachType == AttachType::Texture2D) {
-					glBindTexture(GL_TEXTURE_2D, this->stencilAttachment);
-					glTexStorage2D(GL_TEXTURE_2D, 1, this->stencilAttachFormat, this->_width, this->_height);
-					glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, this->stencilAttachment, 0);
+				if (this->stencilAttachment.attachType == AttachType::Texture2D) {
+					glBindTexture(GL_TEXTURE_2D, this->stencilAttachment.index);
+					glTexImage2D(GL_TEXTURE_2D, 0, this->stencilAttachment.internalFormat, this->width, this->height, 0, this->stencilAttachment.format, this->stencilAttachment.type, nullptr);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+					glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, this->stencilAttachment.index, 0);
 				}
-				else if (this->stencilAttachType == AttachType::RenderBuffer) {
-					glBindRenderbuffer(GL_RENDERBUFFER, this->stencilAttachment);
-					glRenderbufferStorage(GL_RENDERBUFFER, this->stencilAttachFormat, this->_width, this->_height);
-					glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, this->stencilAttachment);
+				else if (this->stencilAttachment.attachType == AttachType::RenderBuffer) {
+					glBindRenderbuffer(GL_RENDERBUFFER, this->stencilAttachment.index);
+					glRenderbufferStorage(GL_RENDERBUFFER, this->stencilAttachment.format, this->width, this->height);
+					glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, this->stencilAttachment.index);
 				}
 				return true;
-			}
-			size_t height(void) const {
-				return this->_height;
-			}
-			size_t width(void) const {
-				return this->_width;
 			}
 			bool clearColorAttachment(int index) {
 				if (index < 0 || index >= this->maxAttachments)
 					return false;
 				this->bind();
-				if (this->colorAttachType[index] == AttachType::Texture2D) {
+				if (this->colorAttachments[index].attachType == AttachType::Texture2D) {
 					glBindTexture(GL_TEXTURE_2D, 0);
 					glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index, GL_TEXTURE_2D, 0, 0);
-					glDeleteTextures(1, &this->colorAttachments[index]);
+					glDeleteTextures(1, &this->colorAttachments[index].index);
 				}
-				else if (this->colorAttachType[index] == AttachType::RenderBuffer) {
+				else if (this->colorAttachments[index].attachType == AttachType::RenderBuffer) {
 					glBindRenderbuffer(GL_RENDERBUFFER, 0);
 					glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index, GL_RENDERBUFFER, 0);
-					glDeleteRenderbuffers(1, &this->colorAttachments[index]);
+					glDeleteRenderbuffers(1, &this->colorAttachments[index].index);
 				}
 				else
 					return false;
-				this->colorAttachments[index] = 0;
-				this->colorAttachFormat[index] = 0;
-				this->colorAttachType[index] = AttachType::NotAttached;
+				this->colorAttachments[index].reset();
 				return true;
 			}
 			bool clearDepthAttachment(void) {
 				this->bind();
-				if (this->depthAttachType == AttachType::Texture2D) {
+				if (this->depthAttachment.attachType == AttachType::Texture2D) {
 					glBindTexture(GL_TEXTURE_2D, 0);
 					glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
-					glDeleteTextures(1, &this->depthAttachment);
+					glDeleteTextures(1, &this->depthAttachment.index);
 				}
-				else if (this->depthAttachType == AttachType::RenderBuffer) {
+				else if (this->depthAttachment.attachType == AttachType::RenderBuffer) {
 					glBindRenderbuffer(GL_RENDERBUFFER, 0);
 					glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
-					glDeleteRenderbuffers(1, &this->depthAttachment);
+					glDeleteRenderbuffers(1, &this->depthAttachment.index);
 				}
 				else
 					return false;
-				this->depthAttachment = 0;
-				this->depthAttachFormat = 0;
-				this->depthAttachType = AttachType::NotAttached;
+				this->depthAttachment.reset();
 				return true;
 			}
 			bool clearStencilAttachment(void) {
 				this->bind();
-				if (this->stencilAttachType == AttachType::Texture2D) {
+				if (this->stencilAttachment.attachType == AttachType::Texture2D) {
 					glBindTexture(GL_TEXTURE_2D, 0);
 					glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
-					glDeleteTextures(1, &this->stencilAttachment);
+					glDeleteTextures(1, &this->stencilAttachment.index);
 				}
-				else if (this->stencilAttachType == AttachType::RenderBuffer) {
+				else if (this->stencilAttachment.attachType == AttachType::RenderBuffer) {
 					glBindRenderbuffer(GL_RENDERBUFFER, 0);
 					glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, 0);
-					glDeleteRenderbuffers(1, &this->stencilAttachment);
+					glDeleteRenderbuffers(1, &this->stencilAttachment.index);
 				}
 				else
 					return false;
-				this->stencilAttachment = 0;
-				this->stencilAttachFormat = 0;
-				this->stencilAttachType = AttachType::NotAttached;
+				this->stencilAttachment.reset();
 				return true;
 			}
-			bool setColorAttachment(int index, GLenum format, AttachType type) {
+			bool setColorAttachment(int index, GLenum internalFormat, GLenum format, GLenum type, AttachType attachType) {
 				if (index < 0 || index >= this->maxAttachments)
 					return false;
 				this->clearColorAttachment(index);
-				if (type == AttachType::Texture2D) {
-					glGenTextures(1, &this->colorAttachments[index]);
-					glBindTexture(GL_TEXTURE_2D, this->colorAttachments[index]);
-					glTexStorage2D(GL_TEXTURE_2D, 1, format, this->_width, this->_height);
-					glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index, GL_TEXTURE_2D, this->colorAttachments[index], 0);
+				if (attachType == AttachType::NotAttached)
+					return true;
+				Attachment& colorAttachment = this->colorAttachments[index];
+				colorAttachment.set(
+					attachType,
+					0,
+					internalFormat,
+					format,
+					type
+				);
+				if (colorAttachment.attachType == AttachType::Texture2D) {
+					glGenTextures(1, &colorAttachment.index);
+					glBindTexture(GL_TEXTURE_2D, colorAttachment.index);
+					//TODO: use glTexStorage2D sometimes
+					glTexImage2D(GL_TEXTURE_2D, 0, colorAttachment.internalFormat, this->width, this->height, 0, colorAttachment.format, colorAttachment.type, nullptr);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+					glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index, GL_TEXTURE_2D, colorAttachment.index, 0);
 				}
-				else if (type == AttachType::RenderBuffer) {
-					glGenRenderbuffers(1, &this->colorAttachments[index]);
-					glBindRenderbuffer(GL_RENDERBUFFER, this->colorAttachments[index]);
-					glRenderbufferStorage(GL_RENDERBUFFER, format, this->_width, this->_height);
-					glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index, GL_RENDERBUFFER, this->colorAttachments[index]);
+				else if (colorAttachment.attachType == AttachType::RenderBuffer) {
+					glGenRenderbuffers(1, &colorAttachment.index);
+					glBindRenderbuffer(GL_RENDERBUFFER, colorAttachment.index);
+					glRenderbufferStorage(GL_RENDERBUFFER, colorAttachment.format, this->width, this->height);
+					glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index, GL_RENDERBUFFER, colorAttachment.index);
 				}
-				this->colorAttachFormat[index] = format;
-				this->colorAttachType[index] = type;
 				return true;
 			}
-			bool setDepthAttachment(GLenum format, AttachType type) {
+			bool setDepthAttachment(GLenum internalFormat, GLenum format, GLenum type, AttachType attachType) {
 				this->clearDepthAttachment();
-				if (type == AttachType::Texture2D) {
-					glGenTextures(1, &this->depthAttachment);
-					glBindTexture(GL_TEXTURE_2D, this->depthAttachment);
-					glTexStorage2D(GL_TEXTURE_2D, 1, format, this->_width, this->_height);
-					glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, this->depthAttachment, 0);
+				if (attachType == AttachType::NotAttached)
+					return true;
+				this->depthAttachment.set(
+					attachType,
+					0,
+					internalFormat,
+					format,
+					type
+				);
+				if (this->depthAttachment.attachType == AttachType::Texture2D) {
+					glBindTexture(GL_TEXTURE_2D, this->depthAttachment.index);
+					glGenTextures(1, &this->depthAttachment.index);
+					glTexImage2D(GL_TEXTURE_2D, 0, this->depthAttachment.internalFormat, this->width, this->height, 0, this->depthAttachment.format, this->depthAttachment.type, nullptr);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+					glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, this->depthAttachment.index, 0);
 				}
-				else if (type == AttachType::RenderBuffer) {
-					glGenRenderbuffers(1, &this->depthAttachment);
-					glBindRenderbuffer(GL_RENDERBUFFER, this->depthAttachment);
-					glRenderbufferStorage(GL_RENDERBUFFER, format, this->_width, this->_height);
-					glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->depthAttachment);
+				else if (this->depthAttachment.attachType == AttachType::RenderBuffer) {
+					glGenRenderbuffers(1, &this->depthAttachment.index);
+					glBindRenderbuffer(GL_RENDERBUFFER, this->depthAttachment.index);
+					glRenderbufferStorage(GL_RENDERBUFFER, this->depthAttachment.format, this->width, this->height);
+					glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->depthAttachment.index);
 				}
-				this->depthAttachFormat = format;
-				this->depthAttachType = type;
 				return true;
 			}
-			bool setStencilAttachment(GLenum format, AttachType type) {
+			bool setStencilAttachment(GLenum internalFormat, GLenum format, GLenum type, AttachType attachType) {
 				this->clearStencilAttachment();
-				if (type == AttachType::Texture2D) {
-					glGenTextures(1, &this->stencilAttachment);
-					glBindTexture(GL_TEXTURE_2D, this->stencilAttachment);
-					glTexStorage2D(GL_TEXTURE_2D, 1, format, this->_width, this->_height);
-					glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, this->stencilAttachment, 0);
+				if (attachType == AttachType::NotAttached)
+					return true;
+				this->stencilAttachment.set(
+					attachType,
+					0,
+					internalFormat,
+					format,
+					type
+				);
+				if (this->stencilAttachment.attachType == AttachType::Texture2D) {
+					glGenTextures(1, &this->stencilAttachment.index);
+					glBindTexture(GL_TEXTURE_2D, this->stencilAttachment.index);
+					glTexImage2D(GL_TEXTURE_2D, 0, this->stencilAttachment.internalFormat, this->width, this->height, 0, this->stencilAttachment.format, this->stencilAttachment.type, nullptr);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+					glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, this->stencilAttachment.index, 0);
 				}
-				else if (type == AttachType::RenderBuffer) {
-					glGenRenderbuffers(1, &this->stencilAttachment);
-					glBindRenderbuffer(GL_RENDERBUFFER, this->stencilAttachment);
-					glRenderbufferStorage(GL_RENDERBUFFER, format, this->_width, this->_height);
-					glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, this->stencilAttachment);
+				else if (this->stencilAttachment.attachType == AttachType::RenderBuffer) {
+					glGenRenderbuffers(1, &this->stencilAttachment.index);
+					glBindRenderbuffer(GL_RENDERBUFFER, this->stencilAttachment.index);
+					glRenderbufferStorage(GL_RENDERBUFFER, this->stencilAttachment.format, this->width, this->height);
+					glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, this->stencilAttachment.index);
 				}
-				this->stencilAttachFormat = format;
-				this->stencilAttachType = type;
 				return true;
 			}
 			bool setDrawBuffers(std::initializer_list<GLenum> list) {
 				std::vector<GLenum> indices;
 				for (const auto& index : list) {
-					if (index < 0 || index >= this->maxAttachments || this->colorAttachType[index] == AttachType::NotAttached)
+					if (index < 0 || index >= this->maxAttachments || this->colorAttachments[index].attachType == AttachType::NotAttached)
 						return false;
 					indices.push_back(GL_COLOR_ATTACHMENT0 + index);
 				}
@@ -214,7 +264,7 @@ namespace jjyou {
 			template<class Iter> bool setDrawBuffers(const Iter begin, const Iter end) {
 				std::vector<GLenum> indices;
 				for (Iter iter = begin; iter != end; iter++) {
-					if (*iter < 0 || *iter >= this->maxAttachments || this->colorAttachType[*iter] == AttachType::NotAttached)
+					if (*iter < 0 || *iter >= this->maxAttachments || this->colorAttachments[*iter].attachType == AttachType::NotAttached)
 						return false;
 					indices.push_back(GL_COLOR_ATTACHMENT0 + *iter);
 				}
@@ -226,17 +276,18 @@ namespace jjyou {
 				this->bind();
 				return glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
 			}
+			//https://docs.gl/gl4/glGetTexImage
 			bool readColorAttachment(int index, GLenum format, GLenum type, void* dst) {
 				if (index < 0 || index >= this->maxAttachments)
 					return false;
 				this->bind();
-				if (this->colorAttachType[index] == AttachType::Texture2D) {
-					glBindTexture(GL_TEXTURE_2D, this->colorAttachments[index]);
+				if (this->colorAttachments[index].attachType == AttachType::Texture2D) {
+					glBindTexture(GL_TEXTURE_2D, this->colorAttachments[index].index);
 					glGetTexImage(GL_TEXTURE_2D, 0, format, type, dst);
 				}
-				else if (this->colorAttachType[index] == AttachType::RenderBuffer) {
+				else if (this->colorAttachments[index].attachType == AttachType::RenderBuffer) {
 					glReadBuffer(GL_COLOR_ATTACHMENT0 + index);
-					glReadPixels(0, 0, this->_width, this->_height, format, type, dst);
+					glReadPixels(0, 0, this->width, this->height, format, type, dst);
 				}
 				else
 					return false;
@@ -244,25 +295,25 @@ namespace jjyou {
 			}
 			bool readDepthAttachment(GLenum type, void* dst) {
 				this->bind();
-				if (this->depthAttachType == AttachType::Texture2D) {
-					glBindTexture(GL_TEXTURE_2D, this->depthAttachment);
+				if (this->depthAttachment.attachType == AttachType::Texture2D) {
+					glBindTexture(GL_TEXTURE_2D, this->depthAttachment.index);
 					glGetTexImage(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, type, dst);
 				}
-				else if (this->depthAttachType == AttachType::RenderBuffer) {
-					glReadPixels(0, 0, this->_width, this->_height, GL_DEPTH_COMPONENT, type, dst);
+				else if (this->depthAttachment.attachType == AttachType::RenderBuffer) {
+					glReadPixels(0, 0, this->width, this->height, GL_DEPTH_COMPONENT, type, dst);
 				}
 				else
 					return false;
 				return true;
 			}
-			bool readStencilAttachment(GLenum format, GLenum type, void* dst) {
+			bool readStencilAttachment(GLenum type, void* dst) {
 				this->bind();
-				if (this->stencilAttachType == AttachType::Texture2D) {
-					glBindTexture(GL_TEXTURE_2D, this->stencilAttachment);
+				if (this->stencilAttachment.attachType == AttachType::Texture2D) {
+					glBindTexture(GL_TEXTURE_2D, this->stencilAttachment.index);
 					glGetTexImage(GL_TEXTURE_2D, 0, GL_STENCIL_INDEX, type, dst);
 				}
-				else if (this->stencilAttachType == AttachType::RenderBuffer) {
-					glReadPixels(0, 0, this->_width, this->_height, GL_STENCIL_INDEX, type, dst);
+				else if (this->stencilAttachment.attachType == AttachType::RenderBuffer) {
+					glReadPixels(0, 0, this->width, this->height, GL_STENCIL_INDEX, type, dst);
 				}
 				else
 					return false;
@@ -274,18 +325,17 @@ namespace jjyou {
 				this->clearDepthAttachment();
 				this->clearStencilAttachment();
 				glDeleteFramebuffers(1, &this->fbo);
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			}
 
-		private:
-			GLsizei _width, _height;
+		public:
+			GLsizei width, height;
 			GLuint fbo;
 			GLint maxAttachments;
-			std::vector<GLuint> colorAttachments;
-			std::vector<GLenum> colorAttachFormat;
-			std::vector<AttachType> colorAttachType;
-			GLuint depthAttachment, stencilAttachment;
-			GLenum depthAttachFormat, stencilAttachFormat;
-			AttachType depthAttachType, stencilAttachType;
+
+			std::vector<Attachment> colorAttachments;
+			Attachment depthAttachment;
+			Attachment stencilAttachment;
 		};
 
 	}

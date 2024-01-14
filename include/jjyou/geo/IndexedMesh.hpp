@@ -10,6 +10,10 @@
 namespace jjyou {
 	namespace geo {
 
+		//Forward declaration
+		template <class FP>
+		class HalfedgeMesh;
+
 		/***********************************************************************
 		 * @class IndexedMesh
 		 * @brief Indexed data structure of a mesh.
@@ -21,7 +25,7 @@ namespace jjyou {
 		 *
 		 * @sa			jjyou::geo::HalfedgeMesh
 		 ***********************************************************************/
-		template <class FP = float>
+		template <class FP>
 		class IndexedMesh {
 
 			/*============================================================
@@ -30,9 +34,18 @@ namespace jjyou {
 		public:
 			using Vec3 = Eigen::Vector<FP, 3>;
 			using Vec2 = Eigen::Vector<FP, 2>;
+			class Vertex;
+			class Corner;
+			class Face;
 			/*============================================================
 			 *                 End of forward declarations
 			 *============================================================*/
+
+			 /** @defgroup	Element Classes
+				* @brief		Element classes for vertex, halfedge, face, and edge.
+				*
+				* @{
+				*/
 
 		public:
 
@@ -48,9 +61,13 @@ namespace jjyou {
 				  */
 				Vertex(void) : position(Vec3::Zero()) {}
 
-				/** @brief Construct with position.
+				/** @brief Construct from position.
 				  */
 				Vertex(const Vec3& position) : position(position) {}
+
+				/** @brief Construct from position.
+				  */
+				Vertex(FP x, FP y, FP z) : position(x, y, z) {}
 
 				/** @brief Helper printing function.
 				  */
@@ -65,20 +82,36 @@ namespace jjyou {
 
 			};
 
-			struct Corner {
+			class Corner {
 
+			public:
+
+				/** @brief Index of the vertex.
+				  */
 				std::uint32_t vIdx;
 
+				/** @brief The texture coordinate of the corner.
+				  */
 				Vec2 uv;
 
+				/** @brief The normal of the corner.
+				  */
 				Vec3 normal;
 
-				Corner(void) : vIdx(0U), uv(Vec2::Zero()), normal(Vec3::Zero()) {}
+				/** @brief The tangent of the source vertex.
+				  */
+				Vec3 tangent;
 
-				Corner(std::uint32_t vIdx) : vIdx(vIdx), uv(Vec2::Zero()), normal(Vec3::Zero()) {}
+				Corner(void) : vIdx(0U), uv(Vec2::Zero()), normal(Vec3::Zero()), tangent(Vec3::Zero()) {}
 
-				Corner(std::uint32_t vIdx, const Vec2& uv, const Vec3& normal) : vIdx(vIdx), uv(uv), normal(normal) {}
+				Corner(std::uint32_t vIdx) : vIdx(vIdx), uv(Vec2::Zero()), normal(Vec3::Zero()), tangent(Vec3::Zero()) {}
 
+				Corner(std::uint32_t vIdx, const Vec2& uv, const Vec3& normal, const Vec3& tangent) : vIdx(vIdx), uv(uv), normal(normal), tangent(tangent) {}
+			
+			private:
+
+				friend class IndexedMesh;
+			
 			};
 
 			class Face {
@@ -93,13 +126,96 @@ namespace jjyou {
 				  */
 				Face(void) : corners() {}
 
+				/** @brief Construct from corners.
+				  */
+				Face(const std::vector<Corner>& corners) : corners(corners) {}
+
+				/** @brief Construct from corners.
+				  */
+				Face(std::vector<Corner>&& corners) : corners(std::move(corners)) {}
+
+				/** @brief Compute the degree of the face.
+				  */
+				std::uint32_t degree(void) const {
+					return this->corners.size();
+				}
+
 			private:
 
 				friend class IndexedMesh;
 
 			};
 
+			/** @}
+			  */
+
+		public:
+
+			/** @brief Default constructor.
+			  */
+			IndexedMesh(void) : _vertices(), _faces() {}
+
+			/** @brief Construct from vertices and faces.
+			  */
+			IndexedMesh(const std::vector<Vertex>& vertices, const std::vector<Face>& faces) : _vertices(vertices), _faces(faces) {}
+			
+			/** @brief Construct from vertices and faces.
+			  */
+			IndexedMesh(std::vector<Vertex>&& vertices, std::vector<Face>&& faces) : _vertices(std::move(vertices)), _faces(std::move(faces)) {}
+
+			/** @brief	Remove all elements in the mesh.
+			  */
+			void clear(void) {
+				this->_vertices.clear();
+				this->_faces.clear();
+			}
+
+			std::vector<Vertex>& vertices(void) { return this->_vertices; }
+
+			const std::vector<Vertex>& vertices(void) const { return this->_vertices; }
+
+			std::vector<Face>& faces(void) { return this->_faces; }
+
+			const std::vector<Face>& faces(void) const { return this->_faces; }
+
+			/** @brief Convert HalfedgeMesh to IndexedMesh.
+			  */
+			void fromHalfedgeMesh(const HalfedgeMesh<FP>& halfedgeMesh);
+
+			/** @brief	Compute face normals.
+			  *			Compute non-boundary face normals and store them in Corner::normal.
+			  *			All corners around a face will have the same normal.
+			  *			It is better to triangulate the mesh before calling this method.
+			  * @sa		jjyou::geo::IndexedMesh::computeVertexNormals
+			  */
+			void computeFaceNormals(void);
+
+			/** @brief	Compute vertex normals.
+			  *			Compute vertex normals and store them in Corner::normal. The vertex normals
+			  *			are computed as the average of incident faces' normals.
+			  *			It is better to triangulate the mesh before calling this method.
+			  * @sa		jjyou::geo::IndexedMesh::computeFaceNormals
+			  */
+			void computeVertexNormals(void);
+
+			/** @brief	Compute tangents.
+			  *			Compute tangents and store them in Corner::tangent. The mesh
+			  *			must have uv coordinates.
+			  * @sa		https://learnopengl.com/Advanced-Lighting/Normal-Mapping
+			  */
+			void computeTangents(void);
+
+		private:
+
+			std::vector<Vertex> _vertices;
+			std::vector<Face> _faces;
+
+			template <class _FP> friend class HalfedgeMesh;
+
 		};
+
+		IndexedMesh<float>;
+		IndexedMesh<double>;
 
 	}
 }

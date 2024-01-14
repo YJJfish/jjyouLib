@@ -10,10 +10,17 @@
 #include <iostream>
 #include <vector>
 #include <type_traits>
+#include <functional>
+#include <string>
+#include <unordered_set>
 #include <Eigen/Eigen>
 
 namespace jjyou {
 	namespace geo {
+
+		//Forward declaration
+		template <class FP>
+		class IndexedMesh;
 
 		/***********************************************************************
 		 * @class HalfedgeMesh
@@ -24,7 +31,7 @@ namespace jjyou {
 		 * @sa			https://en.wikipedia.org/wiki/Doubly_connected_edge_list
 		 * @sa			jjyou::geo::IndexedMesh
 		 ***********************************************************************/
-		template <class FP = float>
+		template <class FP>
 		class HalfedgeMesh {
 
 			/*============================================================
@@ -75,7 +82,7 @@ namespace jjyou {
 				  * @return `true` if the iterator is valid.
 				  */
 				bool valid(void) const {
-					return (this->data) && (this->offset < this->data->size()) && !(*this->data)[this->offset]._removed;
+					return (this->data) && (this->offset < this->data->size()) && !(*this->data)[this->offset].removed();
 				}
 
 				/** @brief	Construct from non-const iterator.
@@ -157,7 +164,7 @@ namespace jjyou {
 				BaseIterator& operator++(void) {
 					do {
 						++this->offset;
-					} while ((this->data) && (this->offset < this->data->size()) && (*this->data)[this->offset]._removed);
+					} while ((this->data) && (this->offset < this->data->size()) && (*this->data)[this->offset].removed());
 					return *this;
 				}
 
@@ -176,7 +183,7 @@ namespace jjyou {
 				BaseIterator& operator--(void) {
 					do {
 						--this->offset;
-					} while ((this->data) && (this->offset < this->data->size()) && (*this->data)[this->offset]._removed);
+					} while ((this->data) && (this->offset < this->data->size()) && (*this->data)[this->offset].removed());
 					return *this;
 				}
 
@@ -250,10 +257,8 @@ namespace jjyou {
 				BaseIterator(T* data, std::uint32_t offset) : data(data), offset(offset) {}
 
 				friend class HalfedgeMesh;
-				friend class VertexRange;
-				friend class HalfedgeRange;
-				friend class FaceRange;
-				friend class EdgeRange;
+				template <class U> friend class BaseIterator;
+				template <class U> friend class BaseRange;
 
 			};
 
@@ -313,6 +318,8 @@ namespace jjyou {
 				BaseRange(T* data, const std::vector<std::uint32_t>* removed) : data(data), removed(removed) {}
 
 				friend class HalfedgeMesh;
+				template <class U> friend class BaseIterator;
+				template <class U> friend class BaseRange;
 
 			};
 
@@ -375,6 +382,12 @@ namespace jjyou {
 					return deg;
 				}
 
+				/** @brief Get element name.
+				  */
+				std::string name(void) const {
+					return "v" + std::to_string(this->_id);
+				}
+
 				/** @brief Helper printing function.
 				  */
 				friend std::ostream& operator<<(std::ostream& out, const Vertex& v) {
@@ -432,9 +445,13 @@ namespace jjyou {
 				  */
 				Vec3 normal;
 
+				/** @brief The tangent of the source vertex.
+				  */
+				Vec3 tangent;
+
 				/** @brief Default constructor.
 				  */
-				Halfedge(void) : _id(-1), next(), prev(), twin(), source(), edge(), face(), uv(Vec2::Zero()), normal(Vec3::Zero()), _removed(false) {}
+				Halfedge(void) : _id(-1), next(), prev(), twin(), source(), edge(), face(), uv(Vec2::Zero()), normal(Vec3::Zero()), tangent(Vec3::Zero()), _removed(false) {}
 				
 				/** @brief Unique identifier.
 				  */
@@ -452,6 +469,18 @@ namespace jjyou {
 				  */
 				bool onBoundary(void) const {
 					return this->face->boundary;
+				}
+
+				/** @brief Get the vector from the source vertex to the destination vertex.
+				  */
+				Vec3 vector(void) const {
+					return this->twin->source->position - this->source->position;
+				}
+
+				/** @brief Get element name.
+				  */
+				std::string name(void) const {
+					return "h" + std::to_string(this->_id);
 				}
 				
 				/** @brief Helper printing function.
@@ -503,7 +532,7 @@ namespace jjyou {
 					return this->_removed;
 				}
 				
-				/** @brief Compute the degree of the vertex.
+				/** @brief Compute the degree of the face.
 				  */
 				std::uint32_t degree(void) const {
 					uint32_t deg = 0;
@@ -513,6 +542,12 @@ namespace jjyou {
 						h = h->next;
 					} while (h != this->halfedge);
 					return deg;
+				}
+
+				/** @brief Get element name.
+				  */
+				std::string name(void) const {
+					return "f" + std::to_string(this->_id);
 				}
 
 				/** @brief Helper printing function.
@@ -564,6 +599,12 @@ namespace jjyou {
 				  */
 				bool onBoundary(void) const {
 					return this->halfedge->face->boundary || this->halfedge->twin->face->boundary;
+				}
+
+				/** @brief Get element name.
+				  */
+				std::string name(void) const {
+					return "e" + std::to_string(this->_id);
 				}
 
 				/** @brief Helper printing function.
@@ -622,7 +663,7 @@ namespace jjyou {
 			  * @return	Iterator pointing to the created vertex.
 			  */
 			template <>
-			VertexIter emplace_back(void) {
+			VertexIter emplace_back<Vertex>(void) {
 				std::uint32_t offset = this->_vertices.size();
 				this->_vertices.emplace_back();
 				VertexIter ret(&this->_vertices, offset);
@@ -634,7 +675,7 @@ namespace jjyou {
 			  * @return	Iterator pointing to the created vertex.
 			  */
 			template <>
-			VertexIter emplace(void) {
+			VertexIter emplace<Vertex>(void) {
 				std::uint32_t offset;
 				if (this->_removedVertices.empty()) {
 					offset = this->_vertices.size();
@@ -686,7 +727,7 @@ namespace jjyou {
 			  * @return	Iterator pointing to the created halfedge.
 			  */
 			template <>
-			HalfedgeIter emplace_back(void) {
+			HalfedgeIter emplace_back<Halfedge>(void) {
 				std::uint32_t offset = this->_halfedges.size();
 				this->_halfedges.emplace_back();
 				HalfedgeIter ret(&this->_halfedges, offset);
@@ -698,7 +739,7 @@ namespace jjyou {
 			  * @return	Iterator pointing to the created halfedge.
 			  */
 			template <>
-			HalfedgeIter emplace(void) {
+			HalfedgeIter emplace<Halfedge>(void) {
 				std::uint32_t offset;
 				if (this->_removedHalfedges.empty()) {
 					offset = this->_halfedges.size();
@@ -750,7 +791,7 @@ namespace jjyou {
 			  * @return	Iterator pointing to the created face.
 			  */
 			template <>
-			FaceIter emplace_back(void) {
+			FaceIter emplace_back<Face>(void) {
 				std::uint32_t offset = this->_faces.size();
 				this->_faces.emplace_back();
 				FaceIter ret(&this->_faces, offset);
@@ -762,7 +803,7 @@ namespace jjyou {
 			  * @return	Iterator pointing to the created face.
 			  */
 			template <>
-			FaceIter emplace(void) {
+			FaceIter emplace<Face>(void) {
 				std::uint32_t offset;
 				if (this->_removedFaces.empty()) {
 					offset = this->_faces.size();
@@ -814,7 +855,7 @@ namespace jjyou {
 			  * @return	Iterator pointing to the created edge.
 			  */
 			template <>
-			EdgeIter emplace_back(void) {
+			EdgeIter emplace_back<Edge>(void) {
 				std::uint32_t offset = this->_edges.size();
 				this->_edges.emplace_back();
 				EdgeIter ret(&this->_edges, offset);
@@ -826,7 +867,7 @@ namespace jjyou {
 			  * @return	Iterator pointing to the created edge.
 			  */
 			template <>
-			EdgeIter emplace(void) {
+			EdgeIter emplace<Edge>(void) {
 				std::uint32_t offset;
 				if (this->_removedEdges.empty()) {
 					offset = this->_edges.size();
@@ -873,138 +914,40 @@ namespace jjyou {
 			  * In order to clean the memory, you need to explicitly call this method.
 			  * Once finished, all existing iterators will be invalidated.
 			  */
-			void collectGarbage(void) {
-				// create mapping
-				std::vector<std::uint32_t> vertex_mapping(this->_vertices.size());
-				std::vector<std::uint32_t> halfedge_mapping(this->_halfedges.size());
-				std::vector<std::uint32_t> face_mapping(this->_faces.size());
-				std::vector<std::uint32_t> edge_mapping(this->_edges.size());
-				for (uint32_t offset = 0, cnt = 0; offset < this->_vertices.size(); ++offset) {
-					vertex_mapping[offset] = cnt;
-					if (!this->_vertices[offset]._removed)
-						++cnt;
-				}
-				for (uint32_t offset = 0, cnt = 0; offset < this->_halfedges.size(); ++offset) {
-					halfedge_mapping[offset] = cnt;
-					if (!this->_halfedges[offset]._removed)
-						++cnt;
-				}
-				for (uint32_t offset = 0, cnt = 0; offset < this->_faces.size(); ++offset) {
-					face_mapping[offset] = cnt;
-					if (!this->_faces[offset]._removed)
-						++cnt;
-				}
-				for (uint32_t offset = 0, cnt = 0; offset < this->_edges.size(); ++offset) {
-					edge_mapping[offset] = cnt;
-					if (!this->_edges[offset]._removed)
-						++cnt;
-				}
-				// update connectivity
-				for (uint32_t offset = 0, cnt = 0; offset < this->_vertices.size(); ++offset, ++cnt) {
-					while (cnt < this->_vertices.size() && this->_vertices[cnt]._removed) ++cnt;
-					if (cnt == this->_vertices.size())
-						break;
-					Vertex& v = this->_vertices[offset];
-					v = this->_vertices[cnt];
-					v.halfedge.offset = halfedge_mapping[v.halfedge.offset];
-				}
-				this->_vertices.resize(this->numVertices());
-				this->_removedVertices.clear();
-				for (uint32_t offset = 0, cnt = 0; offset < this->_halfedges.size(); ++offset, ++cnt) {
-					while (cnt < this->_halfedges.size() && this->_halfedges[cnt]._removed) ++cnt;
-					if (cnt == this->_halfedges.size())
-						break;
-					Halfedge& h = this->_halfedges[offset];
-					h = this->_halfedges[cnt];
-					h.next.offset = halfedge_mapping[h.next.offset];
-					h.prev.offset = halfedge_mapping[h.prev.offset];
-					h.twin.offset = halfedge_mapping[h.twin.offset];
-					h.source.offset = vertex_mapping[h.source.offset];
-					h.edge.offset = edge_mapping[h.edge.offset];
-					h.face.offset = face_mapping[h.face.offset];
-				}
-				this->_halfedges.resize(this->numHalfedges());
-				this->_removedHalfedges.clear();
-				for (uint32_t offset = 0, cnt = 0; offset < this->_faces.size(); ++offset, ++cnt) {
-					while (cnt < this->_faces.size() && this->_faces[cnt]._removed) ++cnt;
-					if (cnt == this->_faces.size())
-						break;
-					Face& f = this->_faces[offset];
-					f = this->_faces[cnt];
-					f.halfedge.offset = halfedge_mapping[f.halfedge.offset];
-				}
-				this->_faces.resize(this->numFaces());
-				this->_removedFaces.clear();
-				for (uint32_t offset = 0, cnt = 0; offset < this->_edges.size(); ++offset, ++cnt) {
-					while (cnt < this->_edges.size() && this->_edges[cnt]._removed) ++cnt;
-					if (cnt == this->_edges.size())
-						break;
-					Edge& e = this->_edges[offset];
-					e = this->_edges[cnt];
-					e.halfedge.offset = halfedge_mapping[e.halfedge.offset];
-				}
-				this->_edges.resize(this->numEdges());
-				this->_removedEdges.clear();
-			}
+			void collectGarbage(void);
 
-			//bool load(
-			//	std::vector<Eigen::Vector3d> points,
-			//	std::vector<std::vector<int>> faces
-			//) {
-			//	this->reset();
-			//	this->vertexInfo.resize(points.size());
-			//	this->halfedgeInfo.reserve(faces.size() * 3);
-			//	this->faceInfo.resize(faces.size());
-			//	std::map<std::pair<VertexIndex, VertexIndex>, EdgeIndex> edges;
-			//	for (int fi = 0; fi < faces.size(); fi++) {
-			//		const auto& f = faces[fi];
-			//		std::vector<HalfedgeIndex> faceHalfedges(f.size());
-			//		for (int hi = 0; hi < f.size(); hi++) {
-			//			VertexIndex v1(f[(hi - 1 + f.size()) % f.size()]);
-			//			VertexIndex v2(f[hi]);
-			//			bool dir;
-			//			std::pair<VertexIndex, VertexIndex> key;
-			//			if (v1 > v2) {
-			//				dir = false;
-			//				key = { v2, v1 };
-			//			}
-			//			else {
-			//				dir = true;
-			//				key = { v1, v2 };
-			//			}
-			//			EdgeIndex& edge = edges[key];
-			//			if (!edge.valid()) {
-			//				edge = EdgeIndex(edges.size() - 1);
-			//				this->halfedgeInfo.emplace_back();
-			//				this->halfedgeInfo.emplace_back();
-			//			}
-			//			faceHalfedges[hi] = this->edgeAssociatedHalfedge(edge, dir);
-			//		}
-			//		for (int hi = 0; hi < f.size(); hi++) {
-			//			VertexIndex v1(f[(hi - 1 + f.size()) % f.size()]);
-			//			VertexIndex v2(f[hi]);
-			//			//If this halfedge's face is already set, the mesh is not a valid mesh for halfedge structure.
-			//			if (this->halfedgeInfo[faceHalfedges[hi].idx()].face.valid()) {
-			//				this->reset();
-			//				return false;
-			//			}
-			//			//Set vertex v1 if its halfedge is not set
-			//			if (!this->vertexInfo[v1.idx()].halfedge.valid())
-			//				this->vertexInfo[v1.idx()].halfedge = faceHalfedges[hi];
-			//			//Set halfedge hi
-			//			this->halfedgeInfo[faceHalfedges[hi].idx()].next = faceHalfedges[(hi + 1) % f.size()];
-			//			this->halfedgeInfo[faceHalfedges[hi].idx()].prev = faceHalfedges[(hi - 1 + f.size()) % f.size()];
-			//			this->halfedgeInfo[faceHalfedges[hi].idx()].target = v2;
-			//			this->halfedgeInfo[faceHalfedges[hi].idx()].face = FaceIndex(fi);
-			//			//Set the opposite halfedge's vertices
-			//			HalfedgeIndex oppoHalfedge = this->halfedgeOppositeHalfedge(faceHalfedges[hi]);
-			//			this->halfedgeInfo[oppoHalfedge.idx()].target = v1;
-			//		}
-			//		//set face fi if its halfedge is not set
-			//		this->faceInfo[fi].halfedge = faceHalfedges[0];
-			//	}
-			//	return true;
-			//}
+			/** @brief	Convert IndexedMesh to HalfedgeMesh.
+			  * @return	`true` if successfully. The conversion will fail if the mesh is not a manifold.
+			  */
+			bool fromIndexedMesh(const IndexedMesh<FP>& indexedMesh);
+
+			/** @brief	Compute face normals.
+			  *			Compute non-boundary face normals and store them in Halfedge::normal.
+			  *			All halfedges around a face will have the same normal.
+			  *			It is better to triangulate the mesh before calling this method.
+			  * @sa		jjyou::geo::HalfedgeMesh::computeVertexNormals
+			  */
+			void computeFaceNormals(void);
+
+			/** @brief	Compute vertex normals.
+			  *			Compute vertex normals and store them in Halfedge::normal. The vertex normals
+			  *			are computed as the average of incident non-boundary faces' normals.
+			  *			It is better to triangulate the mesh before calling this method.
+			  * @sa		jjyou::geo::HalfedgeMesh::computeFaceNormals
+			  */
+			void computeVertexNormals(void);
+
+			/** @brief	Compute tangents.
+			  *			Compute tangents and store them in Halfedge::tangent. The mesh
+			  *			must have uv coordinates.
+			  * @sa		https://learnopengl.com/Advanced-Lighting/Normal-Mapping
+			  */
+			void computeTangents(void);
+
+			/** @brief	Validate. Only for debugging.
+			  * @return	Empty if valid, otherwise the reason for invalidity.
+			  */
+			std::string validate(void) const;
 
 		private:
 
@@ -1012,15 +955,47 @@ namespace jjyou {
 			std::vector<Halfedge> _halfedges; std::vector<std::uint32_t> _removedHalfedges;
 			std::vector<Face> _faces; std::vector<std::uint32_t> _removedFaces;
 			std::vector<Edge> _edges; std::vector<std::uint32_t> _removedEdges;
-
 			std::uint32_t idCnt;
 
+			template <class _FP> friend class IndexedMesh;
+
 		};
+
+		HalfedgeMesh<float>;
+		HalfedgeMesh<double>;
 
 	}
 }
 
 
+namespace std {
+
+	#define HASH_HALFEDGEMESH_ITER(T) \
+	template <> struct hash<typename T> { \
+		using argument_type = T; \
+		using result_type = size_t; \
+		result_type operator()(argument_type const& key) const { \
+			static const std::hash<decltype(&*key)> h; \
+			return h(&*key); \
+		} \
+	}
+
+	#define HASH_HALFEDGEMESH_ITERS(FP) \
+	HASH_HALFEDGEMESH_ITER(::jjyou::geo::HalfedgeMesh<FP>::VertexIter); \
+	HASH_HALFEDGEMESH_ITER(::jjyou::geo::HalfedgeMesh<FP>::VertexCIter); \
+	HASH_HALFEDGEMESH_ITER(::jjyou::geo::HalfedgeMesh<FP>::HalfedgeIter); \
+	HASH_HALFEDGEMESH_ITER(::jjyou::geo::HalfedgeMesh<FP>::HalfedgeCIter); \
+	HASH_HALFEDGEMESH_ITER(::jjyou::geo::HalfedgeMesh<FP>::FaceIter); \
+	HASH_HALFEDGEMESH_ITER(::jjyou::geo::HalfedgeMesh<FP>::FaceCIter); \
+	HASH_HALFEDGEMESH_ITER(::jjyou::geo::HalfedgeMesh<FP>::EdgeIter); \
+	HASH_HALFEDGEMESH_ITER(::jjyou::geo::HalfedgeMesh<FP>::EdgeCIter)
+
+	HASH_HALFEDGEMESH_ITERS(float);
+	HASH_HALFEDGEMESH_ITERS(double);
+
+	#undef HASH_HALFEDGEMESH_ITERS
+	#undef HASH_HALFEDGEMESH_ITER
+}
 
 
 #endif /* jjyou_geo_HalfedgeMesh_hpp */

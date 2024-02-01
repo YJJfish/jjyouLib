@@ -542,9 +542,9 @@ namespace jjyou {
 			  */
 			void use() const;
 
-			/** @brief Get the shader program's ID
+			/** @brief Get the shader program's _id
 			  * 
-			  * @return The ID of the shader program.
+			  * @return The _id of the shader program.
 			  */
 			GLuint id() const;
 
@@ -554,276 +554,276 @@ namespace jjyou {
 			/** @brief Set `bool` uniform variable
 			  */
 			void setBool(const std::string& name, bool value) const {
-				glUniform1i(glGetUniformLocation(this->ID, name.c_str()), (GLint)value);
+				glUniform1i(glGetUniformLocation(this->_id, name.c_str()), (GLint)value);
 			}
 
 			/** @brief Set `bvec1` uniform variable
 			  */
 			void setBVec1(const std::string& name, const glm::bvec1& value) const {
-				glUniform1i(glGetUniformLocation(this->ID, name.c_str()), (GLint)value[0]);
+				glUniform1i(glGetUniformLocation(this->_id, name.c_str()), (GLint)value[0]);
 			}
 
 			/** @brief Set `bvec1` uniform variable
 			  */
 			void setBVec1(const std::string& name, bool x) const {
-				glUniform1i(glGetUniformLocation(this->ID, name.c_str()), (GLint)x);
+				glUniform1i(glGetUniformLocation(this->_id, name.c_str()), (GLint)x);
 			}
 
 			/** @brief Set `bvec2` uniform variable
 			  */
 			void setBVec2(const std::string& name, const glm::bvec2& value) const {
-				glUniform2i(glGetUniformLocation(this->ID, name.c_str()), (GLint)value[0], (GLint)value[1]);
+				glUniform2i(glGetUniformLocation(this->_id, name.c_str()), (GLint)value[0], (GLint)value[1]);
 			}
 
 			/** @brief Set `bvec2` uniform variable
 			  */
 			void setBVec2(const std::string& name, bool x, bool y) const {
-				glUniform2i(glGetUniformLocation(this->ID, name.c_str()), (GLint)x, (GLint)y);
+				glUniform2i(glGetUniformLocation(this->_id, name.c_str()), (GLint)x, (GLint)y);
 			}
 
 			/** @brief Set `bvec3` uniform variable
 			  */
 			void setBVec3(const std::string& name, const glm::bvec3& value) const {
-				glUniform3i(glGetUniformLocation(this->ID, name.c_str()), (GLint)value[0], (GLint)value[1], (GLint)value[2]);
+				glUniform3i(glGetUniformLocation(this->_id, name.c_str()), (GLint)value[0], (GLint)value[1], (GLint)value[2]);
 			}
 
 			/** @brief Set `bvec3` uniform variable
 			  */
 			void setBVec3(const std::string& name, bool x, bool y, bool z) const {
-				glUniform3i(glGetUniformLocation(this->ID, name.c_str()), (GLint)x, (GLint)y, (GLint)z);
+				glUniform3i(glGetUniformLocation(this->_id, name.c_str()), (GLint)x, (GLint)y, (GLint)z);
 			}
 
 			/** @brief Set `bvec4` uniform variable
 			  */
 			void setBVec4(const std::string& name, const glm::bvec4& value) const {
-				glUniform4i(glGetUniformLocation(this->ID, name.c_str()), (GLint)value[0], (GLint)value[1], (GLint)value[2], (GLint)value[3]);
+				glUniform4i(glGetUniformLocation(this->_id, name.c_str()), (GLint)value[0], (GLint)value[1], (GLint)value[2], (GLint)value[3]);
 			}
 
 			/** @brief Set `bvec4` uniform variable
 			  */
 			void setBVec4(const std::string& name, bool x, bool y, bool z, bool w) const {
-				glUniform4i(glGetUniformLocation(this->ID, name.c_str()), (GLint)x, (GLint)y, (GLint)z, (GLint)w);
+				glUniform4i(glGetUniformLocation(this->_id, name.c_str()), (GLint)x, (GLint)y, (GLint)z, (GLint)w);
 			}
 
 			/** @brief Set `int` uniform variable
 			  */
 			void setInt(const std::string& name, GLint value) const {
-				glUniform1i(glGetUniformLocation(this->ID, name.c_str()), value);
+				glUniform1i(glGetUniformLocation(this->_id, name.c_str()), value);
 			}
 
 			/** @brief Set `ivec1` uniform variable
 			  */
 			void setIVec1(const std::string& name, const glm::ivec1& value) const {
-				glUniform1iv(glGetUniformLocation(this->ID, name.c_str()), 1, &value[0]);
+				glUniform1iv(glGetUniformLocation(this->_id, name.c_str()), 1, &value[0]);
 			}
 
 			/** @brief Set `ivec1` uniform variable
 			  */
 			void setIVec1(const std::string& name, GLint x) const {
-				glUniform1i(glGetUniformLocation(this->ID, name.c_str()), x);
+				glUniform1i(glGetUniformLocation(this->_id, name.c_str()), x);
 			}
 
 			/** @brief Set `ivec2` uniform variable
 			  */
 			void setIVec2(const std::string& name, const glm::ivec2& value) const {
-				glUniform2iv(glGetUniformLocation(this->ID, name.c_str()), 1, &value[0]);
+				glUniform2iv(glGetUniformLocation(this->_id, name.c_str()), 1, &value[0]);
 			}
 
 			/** @brief Set `ivec2` uniform variable
 			  */
 			void setIVec2(const std::string& name, GLint x, GLint y) const {
-				glUniform2i(glGetUniformLocation(this->ID, name.c_str()), x, y);
+				glUniform2i(glGetUniformLocation(this->_id, name.c_str()), x, y);
 			}
 
 			/** @brief Set `ivec3` uniform variable
 			  */
 			void setIVec3(const std::string& name, const glm::ivec3& value) const {
-				glUniform3iv(glGetUniformLocation(this->ID, name.c_str()), 1, &value[0]);
+				glUniform3iv(glGetUniformLocation(this->_id, name.c_str()), 1, &value[0]);
 			}
 
 			/** @brief Set `ivec3` uniform variable
 			  */
 			void setIVec3(const std::string& name, GLint x, GLint y, GLint z) const {
-				glUniform3i(glGetUniformLocation(this->ID, name.c_str()), x, y, z);
+				glUniform3i(glGetUniformLocation(this->_id, name.c_str()), x, y, z);
 			}
 
 			/** @brief Set `ivec4` uniform variable
 			  */
 			void setIVec4(const std::string& name, const glm::ivec4& value) const {
-				glUniform4iv(glGetUniformLocation(this->ID, name.c_str()), 1, &value[0]);
+				glUniform4iv(glGetUniformLocation(this->_id, name.c_str()), 1, &value[0]);
 			}
 
 			/** @brief Set `ivec4` uniform variable
 			  */
 			void setIVec4(const std::string& name, GLint x, GLint y, GLint z, GLint w) const {
-				glUniform4i(glGetUniformLocation(this->ID, name.c_str()), x, y, z, w);
+				glUniform4i(glGetUniformLocation(this->_id, name.c_str()), x, y, z, w);
 			}
 
 			/** @brief Set `uint` uniform variable
 			  */
 			void setUInt(const std::string& name, GLuint value) const {
-				glUniform1ui(glGetUniformLocation(this->ID, name.c_str()), value);
+				glUniform1ui(glGetUniformLocation(this->_id, name.c_str()), value);
 			}
 
 			/** @brief Set `uvec1` uniform variable
 			  */
 			void setUVec1(const std::string& name, const glm::uvec1& value) const {
-				glUniform1uiv(glGetUniformLocation(this->ID, name.c_str()), 1, &value[0]);
+				glUniform1uiv(glGetUniformLocation(this->_id, name.c_str()), 1, &value[0]);
 			}
 
 			/** @brief Set `uvec1` uniform variable
 			  */
 			void setUVec1(const std::string& name, GLuint x) const {
-				glUniform1ui(glGetUniformLocation(this->ID, name.c_str()), x);
+				glUniform1ui(glGetUniformLocation(this->_id, name.c_str()), x);
 			}
 
 			/** @brief Set `uvec2` uniform variable
 			  */
 			void setUVec2(const std::string& name, const glm::uvec2& value) const {
-				glUniform2uiv(glGetUniformLocation(this->ID, name.c_str()), 1, &value[0]);
+				glUniform2uiv(glGetUniformLocation(this->_id, name.c_str()), 1, &value[0]);
 			}
 
 			/** @brief Set `uvec2` uniform variable
 			  */
 			void setUVec2(const std::string& name, GLuint x, GLuint y) const {
-				glUniform2ui(glGetUniformLocation(this->ID, name.c_str()), x, y);
+				glUniform2ui(glGetUniformLocation(this->_id, name.c_str()), x, y);
 			}
 
 			/** @brief Set `uvec3` uniform variable
 			  */
 			void setUVec3(const std::string& name, const glm::uvec3& value) const {
-				glUniform3uiv(glGetUniformLocation(this->ID, name.c_str()), 1, &value[0]);
+				glUniform3uiv(glGetUniformLocation(this->_id, name.c_str()), 1, &value[0]);
 			}
 
 			/** @brief Set `uvec3` uniform variable
 			  */
 			void setUVec3(const std::string& name, GLuint x, GLuint y, GLuint z) const {
-				glUniform3ui(glGetUniformLocation(this->ID, name.c_str()), x, y, z);
+				glUniform3ui(glGetUniformLocation(this->_id, name.c_str()), x, y, z);
 			}
 
 			/** @brief Set `uvec4` uniform variable
 			  */
 			void setUVec4(const std::string& name, const glm::uvec4& value) const {
-				glUniform4uiv(glGetUniformLocation(this->ID, name.c_str()), 1, &value[0]);
+				glUniform4uiv(glGetUniformLocation(this->_id, name.c_str()), 1, &value[0]);
 			}
 
 			/** @brief Set `uvec4` uniform variable
 			  */
 			void setUVec4(const std::string& name, GLuint x, GLuint y, GLuint z, GLuint w) const {
-				glUniform4ui(glGetUniformLocation(this->ID, name.c_str()), x, y, z, w);
+				glUniform4ui(glGetUniformLocation(this->_id, name.c_str()), x, y, z, w);
 			}
 
 			/** @brief Set `float` uniform variable
 			  */
 			void setFloat(const std::string& name, GLfloat value) const {
-				glUniform1f(glGetUniformLocation(this->ID, name.c_str()), value);
+				glUniform1f(glGetUniformLocation(this->_id, name.c_str()), value);
 			}
 
 			/** @brief Set `vec1` uniform variable
 			  */
 			void setVec1(const std::string& name, const glm::vec1& value) const {
-				glUniform1fv(glGetUniformLocation(this->ID, name.c_str()), 1, &value[0]);
+				glUniform1fv(glGetUniformLocation(this->_id, name.c_str()), 1, &value[0]);
 			}
 
 			/** @brief Set `vec1` uniform variable
 			  */
 			void setVec1(const std::string& name, GLfloat x) const {
-				glUniform1f(glGetUniformLocation(this->ID, name.c_str()), x);
+				glUniform1f(glGetUniformLocation(this->_id, name.c_str()), x);
 			}
 
 			/** @brief Set `vec2` uniform variable
 			  */
 			void setVec2(const std::string& name, const glm::vec2& value) const {
-				glUniform2fv(glGetUniformLocation(this->ID, name.c_str()), 1, &value[0]);
+				glUniform2fv(glGetUniformLocation(this->_id, name.c_str()), 1, &value[0]);
 			}
 
 			/** @brief Set `vec2` uniform variable
 			  */
 			void setVec2(const std::string& name, GLfloat x, GLfloat y) const {
-				glUniform2f(glGetUniformLocation(this->ID, name.c_str()), x, y);
+				glUniform2f(glGetUniformLocation(this->_id, name.c_str()), x, y);
 			}
 
 			/** @brief Set `vec3` uniform variable
 			  */
 			void setVec3(const std::string& name, const glm::vec3& value) const {
-				glUniform3fv(glGetUniformLocation(this->ID, name.c_str()), 1, &value[0]);
+				glUniform3fv(glGetUniformLocation(this->_id, name.c_str()), 1, &value[0]);
 			}
 
 			/** @brief Set `vec3` uniform variable
 			  */
 			void setVec3(const std::string& name, GLfloat x, GLfloat y, GLfloat z) const {
-				glUniform3f(glGetUniformLocation(this->ID, name.c_str()), x, y, z);
+				glUniform3f(glGetUniformLocation(this->_id, name.c_str()), x, y, z);
 			}
 
 			/** @brief Set `vec4` uniform variable
 			  */
 			void setVec4(const std::string& name, const glm::vec4& value) const {
-				glUniform4fv(glGetUniformLocation(this->ID, name.c_str()), 1, &value[0]);
+				glUniform4fv(glGetUniformLocation(this->_id, name.c_str()), 1, &value[0]);
 			}
 
 			/** @brief Set `vec4` uniform variable
 			  */
 			void setVec4(const std::string& name, GLfloat x, GLfloat y, GLfloat z, GLfloat w) const {
-				glUniform4f(glGetUniformLocation(this->ID, name.c_str()), x, y, z, w);
+				glUniform4f(glGetUniformLocation(this->_id, name.c_str()), x, y, z, w);
 			}
 
 			/** @brief Set `mat2` uniform variable
 			  */
 			void setMat2(const std::string& name, const glm::mat2& mat) const {
-				glUniformMatrix2fv(glGetUniformLocation(this->ID, name.c_str()), 1, GL_FALSE, &mat[0][0]);
+				glUniformMatrix2fv(glGetUniformLocation(this->_id, name.c_str()), 1, GL_FALSE, &mat[0][0]);
 			}
 
 			/** @brief Set `mat2x3` uniform variable
 			  */
 			void setMat2x3(const std::string& name, const glm::mat2x3& mat) const {
-				glUniformMatrix2x3fv(glGetUniformLocation(this->ID, name.c_str()), 1, GL_FALSE, &mat[0][0]);
+				glUniformMatrix2x3fv(glGetUniformLocation(this->_id, name.c_str()), 1, GL_FALSE, &mat[0][0]);
 			}
 
 			/** @brief Set `mat2x4` uniform variable
 			  */
 			void setMat2x4(const std::string& name, const glm::mat2x4& mat) const {
-				glUniformMatrix2x4fv(glGetUniformLocation(this->ID, name.c_str()), 1, GL_FALSE, &mat[0][0]);
+				glUniformMatrix2x4fv(glGetUniformLocation(this->_id, name.c_str()), 1, GL_FALSE, &mat[0][0]);
 			}
 
 			/** @brief Set `mat3` uniform variable
 			  */
 			void setMat3(const std::string& name, const glm::mat3& mat) const {
-				glUniformMatrix3fv(glGetUniformLocation(this->ID, name.c_str()), 1, GL_FALSE, &mat[0][0]);
+				glUniformMatrix3fv(glGetUniformLocation(this->_id, name.c_str()), 1, GL_FALSE, &mat[0][0]);
 			}
 
 			/** @brief Set `mat3x2` uniform variable
 			  */
 			void setMat3x2(const std::string& name, const glm::mat3x2& mat) const {
-				glUniformMatrix3x2fv(glGetUniformLocation(this->ID, name.c_str()), 1, GL_FALSE, &mat[0][0]);
+				glUniformMatrix3x2fv(glGetUniformLocation(this->_id, name.c_str()), 1, GL_FALSE, &mat[0][0]);
 			}
 
 			/** @brief Set `mat3x4` uniform variable
 			  */
 			void setMat3x4(const std::string& name, const glm::mat3x4& mat) const {
-				glUniformMatrix3x4fv(glGetUniformLocation(this->ID, name.c_str()), 1, GL_FALSE, &mat[0][0]);
+				glUniformMatrix3x4fv(glGetUniformLocation(this->_id, name.c_str()), 1, GL_FALSE, &mat[0][0]);
 			}
 
 			/** @brief Set `mat4` uniform variable
 			  */
 			void setMat4(const std::string& name, const glm::mat4& mat) const {
-				glUniformMatrix4fv(glGetUniformLocation(this->ID, name.c_str()), 1, GL_FALSE, &mat[0][0]);
+				glUniformMatrix4fv(glGetUniformLocation(this->_id, name.c_str()), 1, GL_FALSE, &mat[0][0]);
 			}
 
 			/** @brief Set `mat4x2` uniform variable
 			  */
 			void setMat4x2(const std::string& name, const glm::mat4x2& mat) const {
-				glUniformMatrix4x2fv(glGetUniformLocation(this->ID, name.c_str()), 1, GL_FALSE, &mat[0][0]);
+				glUniformMatrix4x2fv(glGetUniformLocation(this->_id, name.c_str()), 1, GL_FALSE, &mat[0][0]);
 			}
 
 			/** @brief Set `mat4x3` uniform variable
 			  */
 			void setMat4x3(const std::string& name, const glm::mat4x3& mat) const {
-				glUniformMatrix4x3fv(glGetUniformLocation(this->ID, name.c_str()), 1, GL_FALSE, &mat[0][0]);
+				glUniformMatrix4x3fv(glGetUniformLocation(this->_id, name.c_str()), 1, GL_FALSE, &mat[0][0]);
 			}
 			//@}
 
 		private:
-			GLuint ID;
+			GLuint _id;
 			static void checkCompileErrors(GLuint shader, std::string type);
 		};
 	}
@@ -839,13 +839,13 @@ namespace jjyou {
 namespace jjyou {
 	namespace gl {
 
-		inline Shader::Shader(void) : ID(0) {}
+		inline Shader::Shader(void) : _id(0) {}
 
-		inline Shader::Shader(const char* vShaderCode, const char* fShaderCode) : ID(0) {
+		inline Shader::Shader(const char* vShaderCode, const char* fShaderCode) : _id(0) {
 			this->load(vShaderCode, fShaderCode);
 		}
 
-		inline Shader::Shader(const std::filesystem::path& vertexPath, const std::filesystem::path& fragmentPath) : ID(0) {
+		inline Shader::Shader(const std::filesystem::path& vertexPath, const std::filesystem::path& fragmentPath) : _id(0) {
 			this->load(vertexPath, fragmentPath);
 		}
 
@@ -854,13 +854,13 @@ namespace jjyou {
 		}
 
 		inline bool Shader::empty(void) const {
-			return this->ID == 0;
+			return (this->_id == 0);
 		}
 
 		inline void Shader::clear(void) {
 			if (!this->empty()) {
-				glDeleteProgram(this->ID);
-				this->ID = 0;
+				glDeleteProgram(this->_id);
+				this->_id = 0;
 			}
 		}
 
@@ -878,11 +878,11 @@ namespace jjyou {
 			glCompileShader(fragment);
 			this->checkCompileErrors(fragment, "FRAGMENT");
 			// shader Program
-			this->ID = glCreateProgram();
-			glAttachShader(this->ID, vertex);
-			glAttachShader(this->ID, fragment);
-			glLinkProgram(this->ID);
-			this->checkCompileErrors(this->ID, "PROGRAM");
+			this->_id = glCreateProgram();
+			glAttachShader(this->_id, vertex);
+			glAttachShader(this->_id, fragment);
+			glLinkProgram(this->_id);
+			this->checkCompileErrors(this->_id, "PROGRAM");
 			// delete the shaders as they're linked into our program now and no longer necessary
 			glDeleteShader(vertex);
 			glDeleteShader(fragment);
@@ -922,11 +922,11 @@ namespace jjyou {
 
 		inline void Shader::use() const {
 			if (!this->empty())
-				glUseProgram(this->ID);
+				glUseProgram(this->_id);
 		}
 
 		inline GLuint Shader::id() const {
-			return this->ID;
+			return this->_id;
 		}
 
 		inline void Shader::checkCompileErrors(GLuint shader, std::string type) {

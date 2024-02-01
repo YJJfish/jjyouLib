@@ -967,35 +967,28 @@ namespace jjyou {
 	}
 }
 
-
-namespace std {
-
-	#define HASH_HALFEDGEMESH_ITER(T) \
-	template <> struct hash<typename T> { \
-		using argument_type = T; \
-		using result_type = size_t; \
-		result_type operator()(argument_type const& key) const { \
-			static const std::hash<decltype(&*key)> h; \
-			return h(&*key); \
-		} \
-	}
-
-	#define HASH_HALFEDGEMESH_ITERS(FP) \
-	HASH_HALFEDGEMESH_ITER(::jjyou::geo::HalfedgeMesh<FP>::VertexIter); \
-	HASH_HALFEDGEMESH_ITER(::jjyou::geo::HalfedgeMesh<FP>::VertexCIter); \
-	HASH_HALFEDGEMESH_ITER(::jjyou::geo::HalfedgeMesh<FP>::HalfedgeIter); \
-	HASH_HALFEDGEMESH_ITER(::jjyou::geo::HalfedgeMesh<FP>::HalfedgeCIter); \
-	HASH_HALFEDGEMESH_ITER(::jjyou::geo::HalfedgeMesh<FP>::FaceIter); \
-	HASH_HALFEDGEMESH_ITER(::jjyou::geo::HalfedgeMesh<FP>::FaceCIter); \
-	HASH_HALFEDGEMESH_ITER(::jjyou::geo::HalfedgeMesh<FP>::EdgeIter); \
-	HASH_HALFEDGEMESH_ITER(::jjyou::geo::HalfedgeMesh<FP>::EdgeCIter)
-
-	HASH_HALFEDGEMESH_ITERS(float);
-	HASH_HALFEDGEMESH_ITERS(double);
-
-	#undef HASH_HALFEDGEMESH_ITERS
-	#undef HASH_HALFEDGEMESH_ITER
+#define JJYOU_GEO_HALFEDGEMESH_HASH_ITER(T) \
+template <> struct ::std::hash<typename T> { \
+	using argument_type = T; \
+	using result_type = size_t; \
+	result_type operator()(argument_type const& key) const { \
+		static const ::std::hash<decltype(&*key)> h; \
+		return h(&*key); \
+	} \
 }
+
+#define JJYOU_GEO_HALFEDGEMESH_HASH_ITERS(FP) \
+JJYOU_GEO_HALFEDGEMESH_HASH_ITER(::jjyou::geo::HalfedgeMesh<FP>::VertexIter); \
+JJYOU_GEO_HALFEDGEMESH_HASH_ITER(::jjyou::geo::HalfedgeMesh<FP>::VertexCIter); \
+JJYOU_GEO_HALFEDGEMESH_HASH_ITER(::jjyou::geo::HalfedgeMesh<FP>::HalfedgeIter); \
+JJYOU_GEO_HALFEDGEMESH_HASH_ITER(::jjyou::geo::HalfedgeMesh<FP>::HalfedgeCIter); \
+JJYOU_GEO_HALFEDGEMESH_HASH_ITER(::jjyou::geo::HalfedgeMesh<FP>::FaceIter); \
+JJYOU_GEO_HALFEDGEMESH_HASH_ITER(::jjyou::geo::HalfedgeMesh<FP>::FaceCIter); \
+JJYOU_GEO_HALFEDGEMESH_HASH_ITER(::jjyou::geo::HalfedgeMesh<FP>::EdgeIter); \
+JJYOU_GEO_HALFEDGEMESH_HASH_ITER(::jjyou::geo::HalfedgeMesh<FP>::EdgeCIter)
+
+JJYOU_GEO_HALFEDGEMESH_HASH_ITERS(float);
+JJYOU_GEO_HALFEDGEMESH_HASH_ITERS(double);
 
 
 #endif /* jjyou_geo_HalfedgeMesh_hpp */

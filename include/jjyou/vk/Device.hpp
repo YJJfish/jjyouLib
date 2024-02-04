@@ -112,7 +112,7 @@ namespace jjyou {
 			  *			Device specific layers have now been deprecated, but it is still
 			  *			a good idea to set them anyway to be compatible with older implementations.
 			  */
-			DeviceBuilder(Instance instance, PhysicalDevice physicalDevice) : instance(instance), physicalDevice(physicalDevice) {}
+			DeviceBuilder(const Instance& instance, const PhysicalDevice& physicalDevice) : instance(instance), physicalDevice(physicalDevice) {}
 
 			/** @brief	Specify the queues to be created along with the logical device.
 			  * @note	By default, the builder will create exactly one graphics/compute/present
@@ -186,8 +186,8 @@ namespace jjyou {
 		
 		private:
 
-			jjyou::vk::Instance instance;
-			jjyou::vk::PhysicalDevice physicalDevice;
+			const jjyou::vk::Instance& instance;
+			const jjyou::vk::PhysicalDevice& physicalDevice;
 			std::map<std::uint32_t, std::vector<float>> deviceQueuePriorities;
 
 		};

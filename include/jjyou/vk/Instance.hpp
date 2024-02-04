@@ -432,7 +432,7 @@ namespace jjyou {
 				VkDebugUtilsMessageTypeFlagsEXT messageType;
 				PFN_vkDebugUtilsMessengerCallbackEXT pfnUserCallback;
 				void* pUserData;
-			} debugUtilsMessengerInfo;
+			} debugUtilsMessengerInfo = {};
 
 			// Default debug messenger callback
 			static VKAPI_ATTR VkBool32 VKAPI_CALL defaultDebugCallback(

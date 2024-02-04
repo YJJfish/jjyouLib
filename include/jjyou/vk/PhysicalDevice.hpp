@@ -215,19 +215,11 @@ namespace jjyou {
 
 		public:
 
-			/** @brief	Construct from jjyou::vk::Instance.
-			  */
-			PhysicalDeviceSelector(Instance instance) : instance(instance) {}
-
-			/** @brief	Set the window surface for onscreen rendering.
+			/** @brief	Construct from jjyou::vk::Instance and VkSurfaceKHR.
 			  * @note	If you created the Vulkan instance for onscreen rendering,
-			  *			you MUST call this function to set the window surface.
-			  * @param	_surface	The window surface.
+			  *			you MUST provide the window surface.
 			  */
-			PhysicalDeviceSelector& surface(VkSurfaceKHR _surface) {
-				this->_surface = _surface;
-				return *this;
-			}
+			PhysicalDeviceSelector(const Instance& instance, VkSurfaceKHR surface = nullptr) : instance(instance), surface(surface) {}
 
 			/** @brief	Enable an device extension.
 			  * @note	If you created the Vulkan instance for onscreen rendering,
@@ -300,7 +292,7 @@ namespace jjyou {
 						continue;
 					// Check swapchain support
 					if (!this->instance.offscreen()) {
-						PhysicalDevice::SwapchainSupportDetails swapchainSupport = PhysicalDevice::querySwapchainSupport(physicalDevice, this->_surface);
+						PhysicalDevice::SwapchainSupportDetails swapchainSupport = PhysicalDevice::querySwapchainSupport(physicalDevice, this->surface);
 						if (swapchainSupport.formats.empty() || swapchainSupport.presentModes.empty())
 							continue;
 					}
@@ -319,7 +311,7 @@ namespace jjyou {
 							// Present
 							if (!this->instance.offscreen() && !presentFamily.has_value()) {
 								VkBool32 presentSupport = false;
-								vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, this->_surface, &presentSupport);
+								vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, this->surface, &presentSupport);
 								if (presentSupport)
 									presentFamily = i;
 							}
@@ -376,11 +368,11 @@ namespace jjyou {
 
 		private:
 
-			Instance instance;
-			VkSurfaceKHR _surface = nullptr;
+			const Instance& instance;
+			VkSurfaceKHR surface = nullptr;
 			std::vector<const char*> enabledDeviceExtensions = {};
 			bool _requestDedicated = true;
-			bool _requireDedicated = true;
+			bool _requireDedicated = false;
 			bool _requireGraphicsQueue = true;
 			bool _requireComputeQueue = false;
 			VkPhysicalDeviceFeatures enabledDeviceFeatures = {};

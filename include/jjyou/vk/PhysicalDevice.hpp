@@ -73,6 +73,11 @@ namespace jjyou {
 			  */
 			std::optional<std::uint32_t> presentQueueFamily(void) const { return this->_presentQueueFamily; }
 
+			/** @brief	Get transfer queue family index.
+			  * @return Transfer queue family index.
+			  */
+			std::optional<std::uint32_t> transferQueueFamily(void) const { return this->_transferQueueFamily; }
+
 			/** @brief	Get enabled device extensions.
 			  * @return Vector of enabled device extensions.
 			  */
@@ -117,6 +122,39 @@ namespace jjyou {
 				details.presentModes.resize(presentModeCount);
 				vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, details.presentModes.data());
 				return details;
+			}
+
+			/** @brief	Find suitable memory type.
+			  * @param	typeFilter		Memory typebit. Usually passed as VkMemoryRequirements::memoryTypeBits.
+			  * @param	properties		Memory properties.
+			  * @return	Memory typebit.
+			  */
+			std::optional<uint32_t> findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
+				VkPhysicalDeviceMemoryProperties memProperties;
+				vkGetPhysicalDeviceMemoryProperties(this->physicalDevice, &memProperties);
+				for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+					if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+						return i;
+					}
+				}
+				return std::nullopt;
+			}
+
+			/** @brief	Find suitable memory type.
+			  * @param	physicalDevice	The physical device.
+			  * @param	typeFilter		Memory typebit. Usually passed as VkMemoryRequirements::memoryTypeBits.
+			  * @param	properties		Memory properties.
+			  * @return	Memory typebit.
+			  */
+			static std::optional<uint32_t> findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+				VkPhysicalDeviceMemoryProperties memProperties;
+				vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+				for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+					if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+						return i;
+					}
+				}
+				return std::nullopt;
 			}
 
 			/** @brief	Wrapper function for vkEnumerateDeviceExtensionProperties.
@@ -197,6 +235,7 @@ namespace jjyou {
 			std::optional<std::uint32_t> _graphicsQueueFamily = std::nullopt;
 			std::optional<std::uint32_t> _computeQueueFamily = std::nullopt;
 			std::optional<std::uint32_t> _presentQueueFamily = std::nullopt;
+			std::optional<std::uint32_t> _transferQueueFamily = std::nullopt;
 			std::vector<const char*> _enabledDeviceExtensions = {};
 			VkPhysicalDeviceFeatures _enabledDeviceFeatures = {};
 
@@ -267,6 +306,19 @@ namespace jjyou {
 				return *this;
 			}
 
+			/** @brief	Require the physical device to have a transfer queue family different
+			  *			from graphics/compute queues.
+			  *			Any queue family with graphics or compute capabilities already implicitly
+			  *			support transfer operations.
+			  *			By default, this is set to `true`. If you set it to false, the transfer
+			  *			queue will be the same as graphics/compute queue.
+			  * @param	required	Whether to require.
+			  */
+			PhysicalDeviceSelector& requireDistinctTransferQueue(bool require = true) {
+				this->_requireDistinctTransferQueue = require;
+				return *this;
+			}
+
 			/** @brief	Enable physical device features. Physical devices that cannot support all
 			  *			the required features will not be selected.
 			  * @param	features	Features to be enabled.
@@ -297,7 +349,7 @@ namespace jjyou {
 							continue;
 					}
 					// Find queue families
-					std::optional<std::uint32_t> presentFamily, graphicsFamily, computeFamily;
+					std::optional<std::uint32_t> graphicsFamily, computeFamily, presentFamily, transferFamily;
 					if (!this->instance.offscreen() || this->_requireGraphicsQueue || this->_requireComputeQueue) {
 						std::vector<VkQueueFamilyProperties> queueFamilies = PhysicalDevice::getPhysicalDeviceQueueFamilyProperties(physicalDevice);
 						for (int i = 0; i < queueFamilies.size(); ++i) {
@@ -315,15 +367,24 @@ namespace jjyou {
 								if (presentSupport)
 									presentFamily = i;
 							}
+							// Transfer
+							if (this->_requireDistinctTransferQueue && !transferFamily.has_value() &&
+								!(queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) &&
+								!(queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) &&
+								(queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT))
+								transferFamily = i;
+							// If all queues are found, break.
 							if ((!this->_requireGraphicsQueue || graphicsFamily.has_value()) &&
 								(!this->_requireComputeQueue || computeFamily.has_value()) &&
-								(this->instance.offscreen() || presentFamily.has_value()))
+								(this->instance.offscreen() || presentFamily.has_value()) &&
+								(!this->_requireDistinctTransferQueue || transferFamily.has_value()))
 								break;
 						}
 					}
 					if ((this->_requireGraphicsQueue && !graphicsFamily.has_value()) ||
 						(this->_requireComputeQueue && !computeFamily.has_value()) ||
-						(!this->instance.offscreen() && !presentFamily.has_value()))
+						(!this->instance.offscreen() && !presentFamily.has_value()) ||
+						(this->_requireDistinctTransferQueue && !transferFamily.has_value()))
 						continue;
 					// Check device properties and features
 					if (this->_requireDedicated || this->_requestDedicated) {
@@ -347,6 +408,7 @@ namespace jjyou {
 							candidateIntegratedPhysicalDevices._graphicsQueueFamily = graphicsFamily;
 							candidateIntegratedPhysicalDevices._computeQueueFamily = computeFamily;
 							candidateIntegratedPhysicalDevices._presentQueueFamily = presentFamily;
+							candidateIntegratedPhysicalDevices._transferQueueFamily = this->_requireDistinctTransferQueue ? transferFamily : (graphicsFamily.has_value() ? graphicsFamily : computeFamily);
 							candidateIntegratedPhysicalDevices._enabledDeviceExtensions = enabledDeviceExtensions;
 							candidateIntegratedPhysicalDevices._enabledDeviceFeatures = this->enabledDeviceFeatures;
 							continue;
@@ -357,6 +419,7 @@ namespace jjyou {
 					_physicalDevice._graphicsQueueFamily = graphicsFamily;
 					_physicalDevice._computeQueueFamily = computeFamily;
 					_physicalDevice._presentQueueFamily = presentFamily;
+					_physicalDevice._transferQueueFamily = this->_requireDistinctTransferQueue ? transferFamily : (graphicsFamily.has_value() ? graphicsFamily : computeFamily);
 					_physicalDevice._enabledDeviceExtensions = enabledDeviceExtensions;
 					_physicalDevice._enabledDeviceFeatures = this->enabledDeviceFeatures;
 					return _physicalDevice;
@@ -375,6 +438,7 @@ namespace jjyou {
 			bool _requireDedicated = false;
 			bool _requireGraphicsQueue = true;
 			bool _requireComputeQueue = false;
+			bool _requireDistinctTransferQueue = true;
 			VkPhysicalDeviceFeatures enabledDeviceFeatures = {};
 
 		};

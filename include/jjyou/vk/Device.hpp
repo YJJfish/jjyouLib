@@ -66,17 +66,22 @@ namespace jjyou {
 			/** @brief	Get graphics queues.
 			  * @return Vector of graphics queues.
 			  */
-			const std::vector<VkQueue>& graphicsQueues(void) const { return this->_graphicsQueues; }
+			const std::optional<VkQueue>& graphicsQueues(void) const { return this->_graphicsQueues; }
 
 			/** @brief	Get compute queues.
 			  * @return Vector of compute queues.
 			  */
-			const std::vector<VkQueue>& computeQueues(void) const { return this->_computeQueues; }
+			const std::optional<VkQueue>& computeQueues(void) const { return this->_computeQueues; }
+
+			/** @brief	Get transfer queues.
+			  * @return Vector of transfer queues.
+			  */
+			const std::optional<VkQueue>& transferQueues(void) const { return this->_transferQueues; }
 
 			/** @brief	Get present queues.
 			  * @return Vector of present queues.
 			  */
-			const std::vector<VkQueue>& presentQueues(void) const { return this->_presentQueues; }
+			const std::optional<VkQueue>& presentQueues(void) const { return this->_presentQueues; }
 
 			/** @brief	Get all queues.
 			  * @return Map of queue family index to vector of queues.
@@ -86,9 +91,13 @@ namespace jjyou {
 		private:
 
 			VkDevice device = nullptr;
-			std::vector<VkQueue> _graphicsQueues = {};
-			std::vector<VkQueue> _computeQueues = {};
-			std::vector<VkQueue> _presentQueues = {};
+			std::optional<VkQueue> _graphicsQueues = std::nullopt;
+			std::optional<VkCommandPool> _graphicsCommandPool = std::nullopt;
+			std::optional<VkQueue> _computeQueues = std::nullopt;
+			std::optional<VkCommandPool> _computeCommandPool = std::nullopt;
+			std::optional<VkQueue> _transferQueues = std::nullopt;
+			std::optional<VkCommandPool> _transferCommandPool = std::nullopt;
+			std::optional<VkQueue> _presentQueues = std::nullopt;
 			std::map<std::uint32_t, std::vector<VkQueue>> _queues = {};
 
 			friend class DeviceBuilder;
@@ -115,7 +124,7 @@ namespace jjyou {
 			DeviceBuilder(const Instance& instance, const PhysicalDevice& physicalDevice) : instance(instance), physicalDevice(physicalDevice) {}
 
 			/** @brief	Specify the queues to be created along with the logical device.
-			  * @note	By default, the builder will create exactly one graphics/compute/present
+			  * @note	By default, the builder will create exactly one graphics/compute/present/transfer
 			  *			queue with priority=1.0f if jjyou::vk::PhysicalDevice has stored the index for
 			  *			graphics/compute/present queue families (i.e. You have required these queues
 			  *			from jjyou::vk::PhysicalDeviceSelector). You can use this function to overwrite
@@ -137,6 +146,8 @@ namespace jjyou {
 					deviceQueuePriorities.emplace(*this->physicalDevice.computeQueueFamily(), std::vector<float>{1.0f});
 				if (this->physicalDevice.presentQueueFamily().has_value())
 					deviceQueuePriorities.emplace(*this->physicalDevice.presentQueueFamily(), std::vector<float>{1.0f});
+				if (this->physicalDevice.transferQueueFamily().has_value())
+					deviceQueuePriorities.emplace(*this->physicalDevice.transferQueueFamily(), std::vector<float>{1.0f});
 				for (auto iter = deviceQueuePriorities.cbegin(); iter != deviceQueuePriorities.cend(); ) {
 					if (iter->second.empty())
 						deviceQueuePriorities.erase(iter++);
@@ -175,11 +186,13 @@ namespace jjyou {
 					for (int i = 0; i < queueFamily.second.size(); ++i)
 						vkGetDeviceQueue(device.device, queueFamily.first, i, &queues[i]);
 					if (queueFamily.first == this->physicalDevice.graphicsQueueFamily())
-						device._graphicsQueues = queues;
+						device._graphicsQueues = queues.front();
 					if (queueFamily.first == this->physicalDevice.computeQueueFamily())
-						device._computeQueues = queues;
+						device._computeQueues = queues.front();
 					if (queueFamily.first == this->physicalDevice.presentQueueFamily())
-						device._presentQueues = queues;
+						device._presentQueues = queues.front();
+					if (queueFamily.first == this->physicalDevice.transferQueueFamily())
+						device._transferQueues = queues.front();
 				}
 				return device;
 			}

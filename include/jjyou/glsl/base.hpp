@@ -19,6 +19,9 @@ namespace jjyou {
 		template <class T, int Cols, int Rows>
 		class mat;
 
+		template <class T>
+		class qua;
+
 		template <class T> inline constexpr T radians(const T& v);
 
 		template <class T> inline constexpr T degrees(const T& v);
@@ -37,9 +40,13 @@ namespace jjyou {
 
 		template <class T, int Length> inline T dot(const vec<T, Length>& v1, const vec<T, Length>& v2);
 
-		template <class T, int Length> inline T squaredNorm(const vec<T, Length>& v);
+		template <class T, int Length> inline constexpr T squaredNorm(const vec<T, Length>& v);
 
-		template <class T, int Length> inline T norm(const vec<T, Length>& v);
+		template <class T> inline constexpr T squaredNorm(const qua<T>& q);
+
+		template <class T, int Length> inline constexpr T norm(const vec<T, Length>& v);
+
+		template <class T> inline constexpr T norm(const qua<T>& q);
 
 		template <class T, int Length> inline void normalize(vec<T, Length>& v);
 

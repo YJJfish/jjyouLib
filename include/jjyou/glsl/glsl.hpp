@@ -14,6 +14,7 @@
 #include "base.hpp"
 #include "vec.hpp"
 #include "mat.hpp"
+#include "qua.hpp"
 #include "trigonometric.hpp"
 #include "linalg.hpp"
 #include "transform.hpp"

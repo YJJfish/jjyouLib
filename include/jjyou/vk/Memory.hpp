@@ -79,12 +79,25 @@ namespace jjyou {
 
 			/** @brief	Default constructor.
 			  */
-			MemoryAllocator(const Device& device) : device(device) {}
+			MemoryAllocator(void) {}
+
+			/** @brief	Initialize allocator.
+			  * @param	device	Vulkan logical device.
+			  */
+			void init(const Device& device) {
+				this->device = &device;
+			}
+
+			/** @brief	Destory allocator.
+			  */
+			void destory(void) {
+				this->device = nullptr;
+			}
 			
 			/** @brief	Allocate memory.
 			  */
 			VkResult allocate(const VkMemoryAllocateInfo* pAllocateInfo, Memory& memory) {
-				VkResult res = vkAllocateMemory(this->device.get(), pAllocateInfo, nullptr, &memory._memory);
+				VkResult res = vkAllocateMemory(this->device->get(), pAllocateInfo, nullptr, &memory._memory);
 				if (res == VK_SUCCESS) {
 					memory._offset = 0ULL;
 					memory._size = pAllocateInfo->allocationSize;
@@ -95,7 +108,7 @@ namespace jjyou {
 			/** @brief	Free memory.
 			  */
 			void free(Memory& memory) {
-				vkFreeMemory(this->device.get(), memory._memory, nullptr);
+				vkFreeMemory(this->device->get(), memory._memory, nullptr);
 				memory._memory = nullptr;
 				memory._offset = 0ULL;
 				memory._size = 0ULL;
@@ -105,18 +118,19 @@ namespace jjyou {
 				if (!memory.has_value()) return VK_ERROR_MEMORY_MAP_FAILED;
 				if (memory._mappedAddress != nullptr)
 					return VK_SUCCESS;
-				VkResult res = vkMapMemory(this->device.get(), memory._memory, memory._offset, memory._size, 0, &memory._mappedAddress);
+				VkResult res = vkMapMemory(this->device->get(), memory._memory, memory._offset, memory._size, 0, &memory._mappedAddress);
 				return res;
 			}
 
 			VkResult unmap(Memory& memory) {
-				vkUnmapMemory(this->device.get(), memory._memory);
+				vkUnmapMemory(this->device->get(), memory._memory);
 				memory._mappedAddress = nullptr;
+				return VK_SUCCESS;
 			}
 
 		private:
 
-			const Device& device;
+			const Device* device = nullptr;
 
 		};
 

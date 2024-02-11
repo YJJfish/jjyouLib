@@ -47,12 +47,20 @@ namespace jjyou {
 			return res;
 		}
 
-		template <class T, int Length> inline T squaredNorm(const vec<T, Length>& v) {
+		template <class T, int Length> inline constexpr T squaredNorm(const vec<T, Length>& v) {
 			return dot(v, v);
 		}
 
-		template <class T, int Length> inline T norm(const vec<T, Length>& v) {
+		template <class T> inline constexpr T squaredNorm(const qua<T>& q) {
+			return q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w;
+		}
+
+		template <class T, int Length> inline constexpr T norm(const vec<T, Length>& v) {
 			return std::sqrt(squaredNorm(v));
+		}
+
+		template <class T> inline constexpr T norm(const qua<T>& q) {
+			return std::sqrt(squaredNorm(q));
 		}
 
 		template <class T, int Length> inline void normalize(vec<T, Length>& v) {

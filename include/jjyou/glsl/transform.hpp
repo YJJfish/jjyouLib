@@ -100,7 +100,7 @@ namespace jjyou {
 			T tanHalfXFov = aspectRatio * tanHalfYFov;
 			mat<T, 4, 4> res;
 			res[0][0] = static_cast<T>(1.0) / tanHalfXFov;
-			res[1][1] = static_cast<T>(1.0) / tanHalfYFov;
+			res[1][1] = -static_cast<T>(1.0) / tanHalfYFov;
 			res[2][2] = zFar / (zNear - zFar);
 			res[2][3] = -static_cast<T>(1.0);
 			res[3][2] = -(zFar * zNear) / (zFar - zNear);

@@ -84,9 +84,19 @@ namespace jjyou {
 			const std::vector<const char*>& enabledDeviceExtensions(void) const { return this->_enabledDeviceExtensions; }
 
 			/** @brief	Get enabled physical device features.
-			  * @return Vector of enabled physical device features.
+			  * @return Enabled physical device features.
 			  */
 			const VkPhysicalDeviceFeatures& enabledDeviceFeatures(void) const { return this->_enabledDeviceFeatures; }
+
+			/** @brief	Get physical device features.
+			  * @return Physical device features.
+			  */
+			const VkPhysicalDeviceFeatures& deviceFeatures(void) const { return this->_deviceFeatures; }
+
+			/** @brief	Get physical device properties.
+			  * @return Physical device properties.
+			  */
+			const VkPhysicalDeviceProperties& deviceProperties(void) const { return this->_deviceProperties; }
 
 			/** @brief Swapchain support details.
 			  */
@@ -155,6 +165,47 @@ namespace jjyou {
 					}
 				}
 				return std::nullopt;
+			}
+
+			/** @brief	Find supported format, given the tiling and tiling features.
+			  * @param	candidates		Format candidates.
+			  * @param	tiling			Tiling type.
+			  * @param	features		Tiling features.
+			  * @return	VkFormat. If not found, it will return `VK_FORMAT_UNDEFINED`.
+			  */
+			VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const {
+				for (VkFormat format : candidates) {
+					VkFormatProperties props;
+					vkGetPhysicalDeviceFormatProperties(this->physicalDevice, format, &props);
+					if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
+						return format;
+					}
+					else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+						return format;
+					}
+				}
+				return VK_FORMAT_UNDEFINED;
+			}
+
+			/** @brief	Find supported format, given the tiling and tiling features.
+			  * @param	physicalDevice	The physical device.
+			  * @param	candidates		Format candidates.
+			  * @param	tiling			Tiling type.
+			  * @param	features		Tiling features.
+			  * @return	VkFormat. If not found, it will return `VK_FORMAT_UNDEFINED`.
+			  */
+			static VkFormat findSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+				for (VkFormat format : candidates) {
+					VkFormatProperties props;
+					vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
+					if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
+						return format;
+					}
+					else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+						return format;
+					}
+				}
+				return VK_FORMAT_UNDEFINED;
 			}
 
 			/** @brief	Wrapper function for vkEnumerateDeviceExtensionProperties.
@@ -237,6 +288,8 @@ namespace jjyou {
 			std::optional<std::uint32_t> _presentQueueFamily = std::nullopt;
 			std::optional<std::uint32_t> _transferQueueFamily = std::nullopt;
 			std::vector<const char*> _enabledDeviceExtensions = {};
+			VkPhysicalDeviceProperties _deviceProperties;
+			VkPhysicalDeviceFeatures _deviceFeatures;
 			VkPhysicalDeviceFeatures _enabledDeviceFeatures = {};
 
 			friend class PhysicalDeviceSelector;
@@ -387,20 +440,20 @@ namespace jjyou {
 						(this->_requireDistinctTransferQueue && !transferFamily.has_value()))
 						continue;
 					// Check device properties and features
-					if (this->_requireDedicated || this->_requestDedicated) {
-						VkPhysicalDeviceProperties deviceProperties;
-						VkPhysicalDeviceFeatures deviceFeatures;
-						vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
-						vkGetPhysicalDeviceFeatures(physicalDevice, &deviceFeatures);
-						bool allFeaturesSupported = true;
-						for (int i = 0; i < sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32); ++i) {
-							if (*(reinterpret_cast<const VkBool32*>(&this->enabledDeviceFeatures) + i) && !*(reinterpret_cast<const VkBool32*>(&deviceFeatures) + i)) {
-								allFeaturesSupported = false;
-								break;
-							}
+					VkPhysicalDeviceProperties deviceProperties;
+					VkPhysicalDeviceFeatures deviceFeatures;
+					vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
+					vkGetPhysicalDeviceFeatures(physicalDevice, &deviceFeatures);
+					bool allFeaturesSupported = true;
+					for (int i = 0; i < sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32); ++i) {
+						if (*(reinterpret_cast<const VkBool32*>(&this->enabledDeviceFeatures) + i) && !*(reinterpret_cast<const VkBool32*>(&deviceFeatures) + i)) {
+							allFeaturesSupported = false;
+							break;
 						}
-						if (!allFeaturesSupported)
-							continue;
+					}
+					if (!allFeaturesSupported)
+						continue;
+					if (this->_requireDedicated || this->_requestDedicated) {
 						if (this->_requireDedicated && deviceProperties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
 							continue;
 						if (this->_requestDedicated && deviceProperties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && !candidateIntegratedPhysicalDevices.has_value()) {
@@ -411,6 +464,8 @@ namespace jjyou {
 							candidateIntegratedPhysicalDevices._transferQueueFamily = this->_requireDistinctTransferQueue ? transferFamily : (graphicsFamily.has_value() ? graphicsFamily : computeFamily);
 							candidateIntegratedPhysicalDevices._enabledDeviceExtensions = enabledDeviceExtensions;
 							candidateIntegratedPhysicalDevices._enabledDeviceFeatures = this->enabledDeviceFeatures;
+							candidateIntegratedPhysicalDevices._deviceFeatures = deviceFeatures;
+							candidateIntegratedPhysicalDevices._deviceProperties = deviceProperties;
 							continue;
 						}
 					}
@@ -422,6 +477,8 @@ namespace jjyou {
 					_physicalDevice._transferQueueFamily = this->_requireDistinctTransferQueue ? transferFamily : (graphicsFamily.has_value() ? graphicsFamily : computeFamily);
 					_physicalDevice._enabledDeviceExtensions = enabledDeviceExtensions;
 					_physicalDevice._enabledDeviceFeatures = this->enabledDeviceFeatures;
+					_physicalDevice._deviceFeatures = deviceFeatures;
+					_physicalDevice._deviceProperties = deviceProperties;
 					return _physicalDevice;
 				}
 				if (this->_requestDedicated && candidateIntegratedPhysicalDevices.has_value())

@@ -92,11 +92,8 @@ namespace jjyou {
 
 			VkDevice device = nullptr;
 			std::optional<VkQueue> _graphicsQueues = std::nullopt;
-			std::optional<VkCommandPool> _graphicsCommandPool = std::nullopt;
 			std::optional<VkQueue> _computeQueues = std::nullopt;
-			std::optional<VkCommandPool> _computeCommandPool = std::nullopt;
 			std::optional<VkQueue> _transferQueues = std::nullopt;
-			std::optional<VkCommandPool> _transferCommandPool = std::nullopt;
 			std::optional<VkQueue> _presentQueues = std::nullopt;
 			std::map<std::uint32_t, std::vector<VkQueue>> _queues = {};
 

@@ -85,7 +85,146 @@ namespace jjyou{
 			}
 			//@}
 
+			/** @name	Public methods.
+			  */
+			//@{
+			template <class U> constexpr qua<U> cast(void) const {
+				qua<U> ret;
+				for (int i = 0; i < length; ++i)
+					ret.data[i] = static_cast<U>(this->data[i]);
+				return ret;
+			}
+			reference operator[](length_type pos) { return this->data[pos]; }
+			const_reference operator[](length_type pos) const { return this->data[pos]; }
+			reference at(length_type pos) { if (pos >= length) throw std::out_of_range("Index out of range"); return this->data[pos]; }
+			const_reference at(length_type pos) const { if (pos >= length) throw std::out_of_range("Index out of range"); return this->data[pos]; }
+			qua& operator=(const qua&) = default;
+			qua& operator=(qua&&) = default;
+			qua& operator=(value_type scalar) {
+				for (int i = 0; i < length; ++i)
+					this->data[i] = scalar;
+				return *this;
+			}
+			qua& operator+=(value_type scalar) {
+				for (int i = 0; i < length; ++i)
+					this->data[i] += scalar;
+				return *this;
+			}
+			qua& operator+=(const qua& q) {
+				for (int i = 0; i < length; ++i)
+					this->data[i] += q.data[i];
+				return *this;
+			}
+			qua& operator-=(value_type scalar) {
+				for (int i = 0; i < length; ++i)
+					this->data[i] -= scalar;
+				return *this;
+			}
+			qua& operator-=(const qua& q) {
+				for (int i = 0; i < length; ++i)
+					this->data[i] -= q.data[i];
+				return *this;
+			}
+			qua& operator*=(value_type scalar) {
+				for (int i = 0; i < length; ++i)
+					this->data[i] *= scalar;
+				return *this;
+			}
+			qua& operator*=(const qua& q) {
+				for (int i = 0; i < length; ++i)
+					this->data[i] *= q.data[i];
+				return *this;
+			}
+			qua& operator/=(value_type scalar) {
+				for (int i = 0; i < length; ++i)
+					this->data[i] /= scalar;
+				return *this;
+			}
+			qua& operator/=(const qua& q) {
+				for (int i = 0; i < length; ++i)
+					this->data[i] /= q.data[i];
+				return *this;
+			}
+			//@}
+
 		};
+
+		/** @name	Non-member element-wise functions.
+		  */
+		//@{
+		template <class T> inline qua<T> operator+(const qua<T>& q) {
+			qua<T> ret;
+			for (int i = 0; i < 4; ++i)
+				ret.data[i] = +q.data[i];
+			return ret;
+		}
+		template <class T> inline qua<T> operator-(const qua<T>& q) {
+			qua<T> ret;
+			for (int i = 0; i < 4; ++i)
+				ret.data[i] = -q.data[i];
+			return ret;
+		}
+		template <class T> inline qua<T> operator+(const qua<T>& q, T s) {
+			qua<T> ret;
+			for (int i = 0; i < 4; ++i)
+				ret.data[i] = q.data[i] + s;
+			return ret;
+		}
+		template <class T> inline qua<T> operator+(T s, const qua<T>& q) {
+			return q + s;
+		}
+		template <class T> inline qua<T> operator+(const qua<T>& q1, const qua<T>& q2) {
+			qua<T> ret;
+			for (int i = 0; i < 4; ++i)
+				ret.data[i] = q1.data[i] + q2.data[i];
+			return ret;
+		}
+		template <class T> inline qua<T> operator-(const qua<T>& q, T s) {
+			qua<T> ret;
+			for (int i = 0; i < 4; ++i)
+				ret.data[i] = q.data[i] - s;
+			return ret;
+		}
+		template <class T> inline qua<T> operator-(const qua<T>& q1, const qua<T>& q2) {
+			qua<T> ret;
+			for (int i = 0; i < 4; ++i)
+				ret.data[i] = q1.data[i] - q2.data[i];
+			return ret;
+		}
+		template <class T> inline qua<T> operator*(const qua<T>& q, T s) {
+			qua<T> ret;
+			for (int i = 0; i < 4; ++i)
+				ret.data[i] = q.data[i] * s;
+			return ret;
+		}
+		template <class T> inline qua<T> operator*(T s, const qua<T>& q) {
+			return q * s;
+		}
+		template <class T> inline qua<T> operator*(const qua<T>& q1, const qua<T>& q2) {
+			qua<T> ret;
+			for (int i = 0; i < 4; ++i)
+				ret.data[i] = q1.data[i] * q2.data[i];
+			return ret;
+		}
+		template <class T> inline qua<T> operator/(const qua<T>& q, T s) {
+			qua<T> ret;
+			for (int i = 0; i < 4; ++i)
+				ret.data[i] = q.data[i] / s;
+			return ret;
+		}
+		template <class T> inline qua<T> operator/(const qua<T>& q1, const qua<T>& q2) {
+			qua<T> ret;
+			for (int i = 0; i < 4; ++i)
+				ret.data[i] = q1.data[i] / q2.data[i];
+			return ret;
+		}
+		template <class T> inline bool operator==(const qua<T>& q1, const qua<T>& q2) {
+			return (q1.data == q2.data);
+		}
+		template <class T> inline bool operator!=(const qua<T>& q1, const qua<T>& q2) {
+			return !(q1 == q2);
+		}
+		//@}
 
 		/** @name	Type definitions for convenience.
 		  */

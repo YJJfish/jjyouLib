@@ -4,6 +4,8 @@
 #include <string>
 #include <chrono>
 #include <type_traits>
+#include <functional>
+#include <cmath>
 
 namespace jjyou {
 	namespace utils {
@@ -78,44 +80,44 @@ namespace jjyou {
 			return s;
 		}
 
-		template <class T> static inline T string2Number(const std::string& str);
-		template <> static inline unsigned char string2Number<unsigned char>(const std::string& str) {
+		template <class T> inline T string2Number(const std::string& str);
+		template <> inline unsigned char string2Number<unsigned char>(const std::string& str) {
 			return std::stoul(str);
 		}
-		template <> static inline char string2Number<char>(const std::string& str) {
+		template <> inline char string2Number<char>(const std::string& str) {
 			return std::stoi(str);
 		}
-		template <> static inline unsigned short string2Number<unsigned short>(const std::string& str) {
+		template <> inline unsigned short string2Number<unsigned short>(const std::string& str) {
 			return std::stoul(str);
 		}
-		template <> static inline short string2Number<short>(const std::string& str) {
+		template <> inline short string2Number<short>(const std::string& str) {
 			return std::stoi(str);
 		}
-		template <> static inline unsigned int string2Number<unsigned int>(const std::string& str) {
+		template <> inline unsigned int string2Number<unsigned int>(const std::string& str) {
 			return std::stoul(str);
 		}
-		template <> static inline int string2Number<int>(const std::string& str) {
+		template <> inline int string2Number<int>(const std::string& str) {
 			return std::stoi(str);
 		}
-		template <> static inline unsigned long string2Number<unsigned long>(const std::string& str) {
+		template <> inline unsigned long string2Number<unsigned long>(const std::string& str) {
 			return std::stoul(str);
 		}
-		template <> static inline long string2Number<long>(const std::string& str) {
+		template <> inline long string2Number<long>(const std::string& str) {
 			return std::stol(str);
 		}
-		template <> static inline unsigned long long string2Number<unsigned long long>(const std::string& str) {
+		template <> inline unsigned long long string2Number<unsigned long long>(const std::string& str) {
 			return std::stoull(str);
 		}
-		template <> static inline long long string2Number<long long>(const std::string& str) {
+		template <> inline long long string2Number<long long>(const std::string& str) {
 			return std::stoll(str);
 		}
-		template <> static inline float string2Number<float>(const std::string& str) {
+		template <> inline float string2Number<float>(const std::string& str) {
 			return std::stof(str);
 		}
-		template <> static inline double string2Number<double>(const std::string& str) {
+		template <> inline double string2Number<double>(const std::string& str) {
 			return std::stod(str);
 		}
-		template <> static inline long double string2Number<long double>(const std::string& str) {
+		template <> inline long double string2Number<long double>(const std::string& str) {
 			return std::stold(str);
 		}
 

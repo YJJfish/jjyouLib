@@ -11,6 +11,7 @@
 #include <vulkan/vulkan.h>
 #include <optional>
 #include <vector>
+#include <algorithm>
 
 #include "Instance.hpp"
 #include "utils.hpp"
@@ -313,6 +314,45 @@ namespace jjyou {
 			  */
 			PhysicalDeviceSelector(const Instance& instance, VkSurfaceKHR surface = nullptr) : instance(instance), surface(surface) {}
 
+			/** @brief	List all physical device names.
+			  *
+			  *			This function list all physical devices without checking the requirements.
+			  *			Some of the physical devices may not support all the features.
+			  * @return	Vector of physical devices.
+			  */
+			std::vector<PhysicalDevice> listAllPhysicalDevices(void) {
+				std::vector<PhysicalDevice> res;
+				std::vector<VkPhysicalDevice> availablePhysicalDevices = this->instance.enumeratePhysicalDevices();
+				res.resize(availablePhysicalDevices.size());
+				for (std::size_t i = 0; i < availablePhysicalDevices.size(); ++i) {
+					VkPhysicalDevice physicalDevice = availablePhysicalDevices[i];
+					VkPhysicalDeviceProperties deviceProperties;
+					VkPhysicalDeviceFeatures deviceFeatures;
+					vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
+					vkGetPhysicalDeviceFeatures(physicalDevice, &deviceFeatures);
+					res[i].physicalDevice = physicalDevice;
+					res[i]._deviceProperties = deviceProperties;
+					res[i]._deviceFeatures = deviceFeatures;
+				}
+				return res;
+			}
+
+			/** @brief	Add required device names.
+			  *
+			  *			If this function is not called, the selector will select from all available
+			  *			physical devices. Once this function is called, the selector will only select
+			  *			the phyical devices that have the specified names.
+			  *			This function can be called multiple times to add multiple device names.
+			  *			The requirement check will still be performed. So make sure the physical device
+			  *			meet the requirements you set. E.g. integrated GPU usually does not have a transfer
+			  *			queue family different from graphics/compute queue families.
+			  * @param	deviceName	Physical device name.
+			  */
+			PhysicalDeviceSelector& requireDeviceName(const std::string& deviceName) {
+				this->requiredDeviceNames.push_back(deviceName);
+				return *this;
+			}
+
 			/** @brief	Enable an device extension.
 			  * @note	If you created the Vulkan instance for onscreen rendering,
 			  *			the "VK_KHR_swapchain" extension will be automatically added.
@@ -392,6 +432,16 @@ namespace jjyou {
 				std::vector<VkPhysicalDevice> availablePhysicalDevices = this->instance.enumeratePhysicalDevices();
 				PhysicalDevice candidateIntegratedPhysicalDevices;
 				for (VkPhysicalDevice physicalDevice : availablePhysicalDevices) {
+					VkPhysicalDeviceProperties deviceProperties;
+					VkPhysicalDeviceFeatures deviceFeatures;
+					vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
+					vkGetPhysicalDeviceFeatures(physicalDevice, &deviceFeatures);
+					// Check device name
+					if (!this->requiredDeviceNames.empty() &&
+						std::find(this->requiredDeviceNames.cbegin(), this->requiredDeviceNames.cend(), deviceProperties.deviceName) == this->requiredDeviceNames.cend())
+					{
+						continue;
+					}
 					// Check device extension support
 					if (!PhysicalDevice::checkDeviceExtensionSupport(physicalDevice, enabledDeviceExtensions))
 						continue;
@@ -440,10 +490,6 @@ namespace jjyou {
 						(this->_requireDistinctTransferQueue && !transferFamily.has_value()))
 						continue;
 					// Check device properties and features
-					VkPhysicalDeviceProperties deviceProperties;
-					VkPhysicalDeviceFeatures deviceFeatures;
-					vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
-					vkGetPhysicalDeviceFeatures(physicalDevice, &deviceFeatures);
 					bool allFeaturesSupported = true;
 					for (int i = 0; i < sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32); ++i) {
 						if (*(reinterpret_cast<const VkBool32*>(&this->enabledDeviceFeatures) + i) && !*(reinterpret_cast<const VkBool32*>(&deviceFeatures) + i)) {
@@ -483,13 +529,14 @@ namespace jjyou {
 				}
 				if (this->_requestDedicated && candidateIntegratedPhysicalDevices.has_value())
 					return candidateIntegratedPhysicalDevices;
-				JJYOU_VK_UTILS_CHECK(VK_ERROR_INCOMPATIBLE_DRIVER);
+				JJYOU_VK_UTILS_THROW(VK_ERROR_INCOMPATIBLE_DRIVER);
 			}
 
 		private:
 
 			const Instance& instance;
 			VkSurfaceKHR surface = nullptr;
+			std::vector<std::string> requiredDeviceNames = {};
 			std::vector<const char*> enabledDeviceExtensions = {};
 			bool _requestDedicated = true;
 			bool _requireDedicated = false;

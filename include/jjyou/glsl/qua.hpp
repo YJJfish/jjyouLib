@@ -9,6 +9,8 @@
 #define jjyou_glsl_qua_hpp
 
 #include <array>
+#include <exception>
+#include <stdexcept>
 
 namespace jjyou{
 

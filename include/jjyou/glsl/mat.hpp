@@ -10,6 +10,7 @@
 
 #include <array>
 #include <exception>
+#include <stdexcept>
 
 namespace jjyou {
 

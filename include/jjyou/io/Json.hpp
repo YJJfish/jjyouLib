@@ -262,6 +262,8 @@ namespace jjyou {
 				case JsonType::Array:
 				case JsonType::Object:
 					throw std::runtime_error("This function is valid only if the Json container is an integer, floating, or bool.");
+				default:
+					throw std::runtime_error("Invalid Json type.");
 				}
 			}
 
@@ -284,6 +286,8 @@ namespace jjyou {
 				case JsonType::Array:
 				case JsonType::Object:
 					throw std::runtime_error("This function is valid only if the Json container is an integer, floating, or bool.");
+				default:
+					throw std::runtime_error("Invalid Json type.");
 				}
 			}
 
@@ -318,6 +322,8 @@ namespace jjyou {
 				case JsonType::Array:
 				case JsonType::Object:
 					throw std::runtime_error("This function is valid only if the Json container is an integer, floating, or bool.");
+				default:
+					throw std::runtime_error("Invalid Json type.");
 				}
 			}
 
@@ -825,6 +831,8 @@ namespace jjyou {
 				return "Array";
 			case JsonType::Object:
 				return "Object";
+			default:
+				return "Unknown";
 			}
 		}
 
@@ -862,6 +870,8 @@ namespace jjyou {
 				return this->pArray->size();
 			case JsonType::Object:
 				return this->pObject->size();
+			default:
+				throw std::runtime_error("Invalid Json type.");
 			}
 		}
 
@@ -878,6 +888,8 @@ namespace jjyou {
 				return iterator(this, this->pArray->begin());
 			case JsonType::Object:
 				return iterator(this, this->pObject->begin());
+			default:
+				throw std::runtime_error("Invalid Json type.");
 			}
 		}
 
@@ -894,6 +906,8 @@ namespace jjyou {
 				return const_iterator(this, this->pArray->cbegin());
 			case JsonType::Object:
 				return const_iterator(this, this->pObject->cbegin());
+			default:
+				throw std::runtime_error("Invalid Json type.");
 			}
 		}
 
@@ -916,6 +930,8 @@ namespace jjyou {
 				return iterator(this, this->pArray->end());
 			case JsonType::Object:
 				return iterator(this, this->pObject->end());
+			default:
+				throw std::runtime_error("Invalid Json type.");
 			}
 		}
 
@@ -933,6 +949,8 @@ namespace jjyou {
 				return const_iterator(this, this->pArray->cend());
 			case JsonType::Object:
 				return const_iterator(this, this->pObject->cend());
+			default:
+				throw std::runtime_error("Invalid Json type.");
 			}
 		}
 
@@ -978,6 +996,8 @@ namespace jjyou {
 			case JsonType::Object:
 				delete this->pObject;
 				break;
+			default:
+				throw std::runtime_error("Invalid Json type.");
 			}
 			this->_type = JsonType::Null;
 			this->dummy = nullptr;
@@ -1007,6 +1027,8 @@ namespace jjyou {
 			case JsonType::Object:
 				this->pObject = new ObjectType(*json.pObject);
 				break;
+			default:
+				throw std::runtime_error("Invalid Json type.");
 			}
 			this->_type = json._type;
 		}
@@ -1042,6 +1064,8 @@ namespace jjyou {
 			case JsonType::Object:
 				this->pObject = new ObjectType();
 				break;
+			default:
+				throw std::runtime_error("Invalid Json type.");
 			}
 			this->_type = type;
 		}
@@ -1091,6 +1115,8 @@ namespace jjyou {
 				}
 				out << StringType(indent, '\t') << "}" << std::endl;
 				break;
+			default:
+				throw std::runtime_error("Invalid Json type.");
 			}
 		}
 
@@ -1294,6 +1320,8 @@ namespace jjyou {
 			case JsonToken::Type::Rbracket: return "Rbracket";
 			case JsonToken::Type::Lbrace: return "Lbrace";
 			case JsonToken::Type::Rbrace: return "Rbrace";
+			default:
+				throw std::runtime_error("Invalid Json token type.");
 			}
 		}
 
@@ -1460,14 +1488,6 @@ namespace jjyou {
 		Json<IntegerTy, FloatingTy, StringTy, BoolTy> Json<IntegerTy, FloatingTy, StringTy, BoolTy>::_parse(JsonLexer& lexer) {
 			JsonToken token = lexer.getToken();
 			switch (token.type) {
-			case JsonToken::Type::Unexpected:
-			{
-				throw std::runtime_error("Unexpected character \"" + std::string(token.data) + "\".");
-			}
-			case JsonToken::Type::End:
-			{
-				throw std::runtime_error("Unexpected EOF.");
-			}
 			case JsonToken::Type::Null:/* Null */
 			{
 				Json json{};
@@ -1546,6 +1566,15 @@ namespace jjyou {
 					json.pObject->emplace(key, Json::_parse(lexer));
 				}
 				return json;
+			}
+			case JsonToken::Type::End:
+			{
+				throw std::runtime_error("Unexpected EOF.");
+			}
+			case JsonToken::Type::Unexpected:
+			default:
+			{
+				throw std::runtime_error("Unexpected character \"" + std::string(token.data) + "\".");
 			}
 			}
 		}

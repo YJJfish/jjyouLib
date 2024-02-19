@@ -82,19 +82,19 @@ namespace jjyou {
 
 		template <class T> inline T string2Number(const std::string& str);
 		template <> inline unsigned char string2Number<unsigned char>(const std::string& str) {
-			return std::stoul(str);
+			return static_cast<unsigned char>(std::stoul(str));
 		}
 		template <> inline char string2Number<char>(const std::string& str) {
-			return std::stoi(str);
+			return static_cast<char>(std::stoi(str));
 		}
 		template <> inline unsigned short string2Number<unsigned short>(const std::string& str) {
-			return std::stoul(str);
+			return static_cast<unsigned short>(std::stoul(str));
 		}
 		template <> inline short string2Number<short>(const std::string& str) {
-			return std::stoi(str);
+			return static_cast<short>(std::stoi(str));
 		}
 		template <> inline unsigned int string2Number<unsigned int>(const std::string& str) {
-			return std::stoul(str);
+			return static_cast<unsigned int>(std::stoul(str));
 		}
 		template <> inline int string2Number<int>(const std::string& str) {
 			return std::stoi(str);

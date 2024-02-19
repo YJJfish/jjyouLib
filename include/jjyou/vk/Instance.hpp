@@ -57,7 +57,7 @@ namespace jjyou {
 					if (this->_debugMessenger != nullptr) {
 						PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(this->instance, "vkDestroyDebugUtilsMessengerEXT");
 						if (vkDestroyDebugUtilsMessengerEXT == nullptr)
-							JJYOU_VK_UTILS_CHECK(VK_ERROR_EXTENSION_NOT_PRESENT);
+							JJYOU_VK_UTILS_THROW(VK_ERROR_EXTENSION_NOT_PRESENT);
 						vkDestroyDebugUtilsMessengerEXT(this->instance, this->_debugMessenger, nullptr);
 					}
 					vkDestroyInstance(this->instance, nullptr);
@@ -373,9 +373,9 @@ namespace jjyou {
 					enabledInstanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 				}
 				if (!Instance::checkLayerSupport(enabledLayers))
-					JJYOU_VK_UTILS_CHECK(VK_ERROR_LAYER_NOT_PRESENT);
+					JJYOU_VK_UTILS_THROW(VK_ERROR_LAYER_NOT_PRESENT);
 				if (!Instance::checkInstanceExtensionSupport(enabledInstanceExtensions))
-					JJYOU_VK_UTILS_CHECK(VK_ERROR_EXTENSION_NOT_PRESENT);
+					JJYOU_VK_UTILS_THROW(VK_ERROR_EXTENSION_NOT_PRESENT);
 				VkApplicationInfo appInfo{
 					.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
 					.pNext = nullptr,
@@ -404,12 +404,13 @@ namespace jjyou {
 				};
 				Instance instance;
 				JJYOU_VK_UTILS_CHECK(vkCreateInstance(&instanceCreateInfo, nullptr, &instance.instance));
+				instance._offscreen = this->_offscreen;
 				instance._enabledLayers = enabledLayers;
 				instance._enabledInstanceExtensions = enabledInstanceExtensions;
 				if (this->_enableDebugUtilsMessenger) {
 					PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance.instance, "vkCreateDebugUtilsMessengerEXT");
 					if (vkCreateDebugUtilsMessengerEXT == nullptr)
-						JJYOU_VK_UTILS_CHECK(VK_ERROR_EXTENSION_NOT_PRESENT);
+						JJYOU_VK_UTILS_THROW(VK_ERROR_EXTENSION_NOT_PRESENT);
 					JJYOU_VK_UTILS_CHECK(vkCreateDebugUtilsMessengerEXT(instance.instance, &debugCreateInfo, nullptr, &instance._debugMessenger));
 				}
 				return instance;

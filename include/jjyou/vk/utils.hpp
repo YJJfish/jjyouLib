@@ -25,9 +25,11 @@ namespace jjyou {
 			  * @brief	Useful macros for vulkan development.
 			  */
 			//@{
-
+			#define JJYOU_VK_UTILS_THROW(err) \
+				throw std::runtime_error(std::format("Vulkan error in file {} line {}: {}", __FILE__, __LINE__, string_VkResult(err)))
+			
 			#define JJYOU_VK_UTILS_CHECK(value) \
-				if (VkResult err = (value); err != VK_SUCCESS) { throw ::std::runtime_error(std::format("Vulkan error in file {} line {}: {}", __FILE__, __LINE__, string_VkResult(err))); }
+				if (VkResult err = (value); err != VK_SUCCESS) { JJYOU_VK_UTILS_THROW(err); }
 			
 			//@}
 

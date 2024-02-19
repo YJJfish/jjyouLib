@@ -96,6 +96,17 @@ namespace jjyou {
 		  * @return	4x4 perspective projection matrix.
 		  */
 		template <class T> mat<T, 4, 4> perspective(T yFov, T aspectRatio, T zNear, T zFar) {
+#if defined(JJYOU_USE_OPENGL)
+			T tanHalfYFov = std::tan(yFov / static_cast<T>(2.0));
+			T tanHalfXFov = aspectRatio * tanHalfYFov;
+			mat<T, 4, 4> res;
+			res[0][0] = static_cast<T>(1.0) / tanHalfXFov;
+			res[1][1] = static_cast<T>(1.0) / tanHalfYFov;
+			res[2][2] = -(zFar + zNear) / (zFar - zNear);
+			res[2][3] = -static_cast<T>(1.0);
+			res[3][2] = -(static_cast<T>(2.0) * zFar * zNear) / (zFar - zNear);
+			return res;
+#elif defined(JJYOU_USE_VULKAN)
 			T tanHalfYFov = std::tan(yFov / static_cast<T>(2.0));
 			T tanHalfXFov = aspectRatio * tanHalfYFov;
 			mat<T, 4, 4> res;
@@ -105,6 +116,7 @@ namespace jjyou {
 			res[2][3] = -static_cast<T>(1.0);
 			res[3][2] = -(zFar * zNear) / (zFar - zNear);
 			return res;
+#endif
 		}
 
 	}

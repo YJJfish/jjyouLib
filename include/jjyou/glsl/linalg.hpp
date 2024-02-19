@@ -32,6 +32,36 @@ namespace jjyou {
 			return vec<T, Length>(static_cast<T>(1.0f));
 		}
 
+		template <class T, int Length> inline constexpr vec<T, Length> max(const vec<T, Length>& v1, const vec<T, Length>& v2) {
+			vec<T, Length> res;
+			for (int i = 0; i < Length; ++i)
+				res[i] = std::max(v1[i], v2[i]);
+			return res;
+		}
+
+		template <class T, int Cols, int Rows> inline constexpr mat<T, Cols, Rows> max(const mat<T, Cols, Rows>& m1, const mat<T, Cols, Rows>& m2) {
+			mat<T, Cols, Rows> res;
+			for (int c = 0; c < Cols; ++c)
+				for (int r = 0; r < Rows; ++r)
+					res[c][r] = std::max(m1[c][r], m2[c][r]);
+			return res;
+		}
+
+		template <class T, int Length> inline constexpr vec<T, Length> min(const vec<T, Length>& v1, const vec<T, Length>& v2) {
+			vec<T, Length> res;
+			for (int i = 0; i < Length; ++i)
+				res[i] = std::min(v1[i], v2[i]);
+			return res;
+		}
+
+		template <class T, int Cols, int Rows> inline constexpr mat<T, Cols, Rows> min(const mat<T, Cols, Rows>& m1, const mat<T, Cols, Rows>& m2) {
+			mat<T, Cols, Rows> res;
+			for (int c = 0; c < Cols; ++c)
+				for (int r = 0; r < Rows; ++r)
+					res[c][r] = std::min(m1[c][r], m2[c][r]);
+			return res;
+		}
+
 		template <class T, int Cols, int Rows> inline constexpr mat<T, Cols, Rows> eye(void) {
 			return mat<T, Cols, Rows>(static_cast<T>(1.0));
 		}

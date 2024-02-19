@@ -34,6 +34,14 @@ namespace jjyou {
 
 		template <class T, int Length> inline constexpr vec<T, Length> ones(void);
 
+		template <class T, int Length> inline constexpr vec<T, Length> max(const vec<T, Length>& v1, const vec<T, Length>& v2);
+
+		template <class T, int Cols, int Rows> inline constexpr mat<T, Cols, Rows> max(const mat<T, Cols, Rows>& m1, const mat<T, Cols, Rows>& m2);
+
+		template <class T, int Length> inline constexpr vec<T, Length> min(const vec<T, Length>& v1, const vec<T, Length>& v2);
+
+		template <class T, int Cols, int Rows> inline constexpr mat<T, Cols, Rows> min(const mat<T, Cols, Rows>& m1, const mat<T, Cols, Rows>& m2);
+
 		template <class T, int Cols, int Rows> inline constexpr mat<T, Cols, Rows> eye(void);
 
 		template <class T, int Cols> inline constexpr mat<T, Cols, Cols> identity(void);

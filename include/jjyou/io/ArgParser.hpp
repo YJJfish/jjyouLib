@@ -7,6 +7,9 @@
 #ifndef jjyou_io_ArgParser_hpp
 #define jjyou_io_ArgParser_hpp
 
+#include <iostream>
+#include <string>
+
 namespace jjyou {
 
 	namespace io {
@@ -17,7 +20,11 @@ namespace jjyou {
 		  */
 		class ArgParser {
 
+		public:
 
+			ArgParser& addArgument() {
+				return *this;
+			}
 		};
 
 	}

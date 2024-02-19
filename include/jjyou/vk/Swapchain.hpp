@@ -242,7 +242,7 @@ namespace jjyou {
 			Swapchain build(void) const {
 				PhysicalDevice::SwapchainSupportDetails swapchainSupport = this->physicalDevice.querySwapchainSupport(this->surface);
 				if (swapchainSupport.formats.empty() || swapchainSupport.presentModes.empty())
-					JJYOU_VK_UTILS_CHECK(VK_ERROR_FORMAT_NOT_SUPPORTED);
+					JJYOU_VK_UTILS_THROW(VK_ERROR_FORMAT_NOT_SUPPORTED);
 				VkSurfaceFormatKHR surfaceFormat = swapchainSupport.formats[0];
 				for (const auto& preferredFormat : this->preferredSurfaceFormat)
 					for (const auto& format : swapchainSupport.formats) {

@@ -15,6 +15,7 @@
 #include "Device.hpp"
 #include "Swapchain.hpp"
 #include "Memory.hpp"
+#include "Texture.hpp"
 #include "utils.hpp"
 
 #endif /* jjyou_vk_Vulkan_hpp */

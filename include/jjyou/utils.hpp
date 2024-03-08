@@ -131,28 +131,28 @@ namespace jjyou {
 		}
 		
 		//type conversion for colors, from integral to floating point
-		template<class SrcT, class DstT>
+		template<class DstT, class SrcT>
 		typename std::enable_if_t<std::is_integral_v<SrcT> && std::is_floating_point_v<DstT>, DstT>
 			color_cast(const SrcT& v) {
 			return static_cast<DstT>(v / DstT(255.0));
 		}
 
 		//type conversion for colors, from floating point to integral
-		template<class SrcT, class DstT>
+		template<class DstT, class SrcT>
 		typename std::enable_if_t<std::is_floating_point_v<SrcT> && std::is_integral_v<DstT>, DstT>
 			color_cast(const SrcT& v) {
 			return static_cast<DstT>(std::clamp(std::round(v * SrcT(255.0)), SrcT(0.0), SrcT(255.0)));
 		}
 		
 		//type conversion for colors, from integral to integral
-		template<class SrcT, class DstT>
+		template<class DstT, class SrcT>
 		typename std::enable_if_t<std::is_integral_v<SrcT> && std::is_integral_v<DstT>, DstT>
 			color_cast(const SrcT& v) {
 			return static_cast<DstT>(std::clamp(v, SrcT(0), SrcT(255)));
 		}
 
 		//type conversion for colors, from floating point to floating point
-		template<class SrcT, class DstT>
+		template<class DstT, class SrcT>
 		typename std::enable_if_t<std::is_floating_point_v<SrcT>&& std::is_floating_point_v<DstT>, DstT>
 			color_cast(const SrcT& v) {
 			return static_cast<DstT>(std::clamp(v, SrcT(0.0), SrcT(1.0)));

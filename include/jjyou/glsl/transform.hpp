@@ -70,10 +70,10 @@ namespace jjyou {
 		  * @return	4x4 transform matrix.
 		  */
 		template <class T> mat<T, 4, 4> lookAt(const vec<T, 3>& position, const vec<T, 3>& target, const vec<T, 3>& up) {
-			vec<T, 3> z = -normalized(target - position);
-			vec<T, 3> x = normalized(cross(up, z));
+			vec<T, 3> z = normalized(target - position);
+			vec<T, 3> x = normalized(cross(z, up));
 			vec<T, 3> y = cross(z, x);
-			mat<T, 4, 4> res;
+			mat<T, 4, 4> res{};
 			res[0][0] = x.x;
 			res[1][0] = x.y;
 			res[2][0] = x.z;
@@ -101,9 +101,9 @@ namespace jjyou {
 			T tanHalfXFov = aspectRatio * tanHalfYFov;
 			mat<T, 4, 4> res;
 			res[0][0] = static_cast<T>(1.0) / tanHalfXFov;
-			res[1][1] = static_cast<T>(1.0) / tanHalfYFov;
-			res[2][2] = -(zFar + zNear) / (zFar - zNear);
-			res[2][3] = -static_cast<T>(1.0);
+			res[1][1] = -static_cast<T>(1.0) / tanHalfYFov;
+			res[2][2] = (zFar + zNear) / (zFar - zNear);
+			res[2][3] = static_cast<T>(1.0);
 			res[3][2] = -(static_cast<T>(2.0) * zFar * zNear) / (zFar - zNear);
 			return res;
 #elif defined(JJYOU_USE_VULKAN)
@@ -111,9 +111,9 @@ namespace jjyou {
 			T tanHalfXFov = aspectRatio * tanHalfYFov;
 			mat<T, 4, 4> res;
 			res[0][0] = static_cast<T>(1.0) / tanHalfXFov;
-			res[1][1] = -static_cast<T>(1.0) / tanHalfYFov;
-			res[2][2] = zFar / (zNear - zFar);
-			res[2][3] = -static_cast<T>(1.0);
+			res[1][1] = static_cast<T>(1.0) / tanHalfYFov;
+			res[2][2] = zFar / (zFar - zNear);
+			res[2][3] = static_cast<T>(1.0);
 			res[3][2] = -(zFar * zNear) / (zFar - zNear);
 			return res;
 #endif

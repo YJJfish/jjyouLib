@@ -1,5 +1,5 @@
 # jjyouLib
-My personal library for developing small projects
+My personal C++ library for developing projects.
 
 ## Dependencies
 
@@ -11,15 +11,20 @@ My personal library for developing small projects
 
 ## Structure
 
-All classes and functions in this library are defined in `jjyou` namespace. Currently, the library are header-only.
+The library is header-only. All classes and functions are defined in the namespace `jjyou`, with subsequent namespaces same as the folder structure. 
 
 - `cuda`
 
   For developing programs based on CUDA.
 
+  - `DeviceArray1D`, `DeviceArray2D`
+
 - `geo`
 
   For geometry processing.
+
+  - `HalfedgeMesh`
+  - `IndexedMesh`
 
 - `gl`
 
@@ -27,14 +32,31 @@ All classes and functions in this library are defined in `jjyou` namespace. Curr
 
 - `glsl`
 
-  A vector-math library similar to [GLM](https://github.com/g-truc/glm), but implemented in a modern way. Instead of making many specializations for `vec` and `mat` and re-defining and re-implementing their member functions, I implement them in two template class without specializations, using `requires` keyword (in C++20) if the member functions depend on the template parameters.
-
-  Note that the classes and functions in `jjyou::glsl` are highly limited (and also, without SIMD optimization), only suitable for GLSL-related computations. Please use Eigen for scientific computing.
+  A vector-math library similar to [GLM](https://github.com/g-truc/glm), for performing vector and matrix computations with the same name convention of [GLSL](https://www.khronos.org/opengl/wiki/OpenGL_Shading_Language).
 
 - `io`
 
   For file IO operations.
 
+  - `Json`
+  - `PlyFile`
+  - `IniFile`
+  - `ArgParser`
+
 - `vk`
 
   For developing applications based on Vulkan. It provides wrapper classes that wrap Vulkan objects to simply the verbose Vulkan initialization process.
+  
+  - `Instance`, `InstanceBuilder`
+  - `PhysicalDevice`, `PhysicalDeviceSelector`
+  - `Device`, `DeviceBuilder`
+  - `Swapchain`, `SwapchainBuilder`
+  - `Memory`, `MemoryAllocator`
+  - `Texture2D`
+  
+- `vis`
+
+  For visualization. Can be used together with `gl` or `vk` module. Before including this library, you must define `JJYOU_USE_OPENGL` or `JJYOU_USE_VULKAN`.
+
+  - `CameraView`, `FirstPersonView`, `SceneView`
+

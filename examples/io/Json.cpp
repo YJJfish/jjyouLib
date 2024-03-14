@@ -67,6 +67,7 @@ void exampleIterate(void) {
 	Json null;
 	for (const Json& v : null)
 		std::cout << v << " ";					///No output.
+	std::cout << std::endl;
 	
 	// The size of a(n) integer/floating/string/bool json is always 1, which means the loop is executed exactly once.
 	

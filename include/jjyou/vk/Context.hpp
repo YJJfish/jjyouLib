@@ -387,7 +387,7 @@ namespace jjyou {
 			ContextBuilder& useDefaultDebugUtilsMessenger(void) {
 				this->setDebugUtilsMessenger(
 					::vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | ::vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
-					::vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | ::vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | ::vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance | ::vk::DebugUtilsMessageTypeFlagBitsEXT::eDeviceAddressBinding,
+					::vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | ::vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | ::vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance,
 					ContextBuilder::defaultDebugCallback,
 					nullptr
 				);
@@ -708,8 +708,6 @@ namespace jjyou {
 					ret += "VALIDATION | ";
 				if (s & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)
 					ret += "PERFORMANCE | ";
-				if (s & VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT)
-					ret += "DEVICE ADDRESS BINDING | ";
 				if (ret.length())
 					return ret.substr(0, ret.length() - 2);
 				return "NONE";

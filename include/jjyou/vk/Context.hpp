@@ -14,7 +14,9 @@
 #include <utility>
 #include <set>
 #include <optional>
+#include <stdexcept>
 #include <functional>
+#include <format>
 #include <iostream>
 
 namespace jjyou {
@@ -689,26 +691,25 @@ namespace jjyou {
 				}
 			}
 			if (!candidate.has_value()) {
-				::vk::resultCheck(::vk::Result::eErrorInitializationFailed, "[Vulkan ContextBuilder] No physical device meets the selection criteria.");
-				return;
+				throw std::runtime_error("[Vulkan ContextBuilder] No physical device meets the selection criteria.");
 			}
-			const PhysicalDeviceInfo& physicalDeviceInfo = physicalDeviceInfos[*candidate];
-			context_._physicalDevice = physicalDeviceInfo.physicalDevice;
-			context_._enabledDeviceFeatures = physicalDeviceInfo.enabledDeviceFeatures;
-			context_._enabledDeviceExtensions = physicalDeviceInfo.enabledDeviceExtensions;
-			context_._queueFamilyIndices = physicalDeviceInfo.queueFamilyIndices;
+			PhysicalDeviceInfo& physicalDeviceInfo = physicalDeviceInfos[*candidate];
+			context_._physicalDevice = std::move(physicalDeviceInfo.physicalDevice);
+			context_._enabledDeviceFeatures = std::move(physicalDeviceInfo.enabledDeviceFeatures);
+			context_._enabledDeviceExtensions = std::move(physicalDeviceInfo.enabledDeviceExtensions);
+			context_._queueFamilyIndices = std::move(physicalDeviceInfo.queueFamilyIndices);
 		}
 
 		inline void ContextBuilder::selectPhysicalDevice(Context& context_, const ::vk::raii::PhysicalDevice& physicalDevice_) const {
-			const PhysicalDeviceInfo physicalDeviceInfo = this->_checkPhysicalDevice(physicalDevice_);
+			PhysicalDeviceInfo physicalDeviceInfo = this->_checkPhysicalDevice(physicalDevice_);
 			if (physicalDeviceInfo.requiredCriteria != PhysicalDeviceInfo::Support::AllSupported) {
-				::vk::resultCheck(::vk::Result::eErrorInitializationFailed, "[Vulkan ContextBuilder] The given physical device does not meet the selection criteria.");
+				throw std::runtime_error("[Vulkan ContextBuilder] The given physical device does not meet the selection criteria.");
 				return;
 			}
-			context_._physicalDevice = physicalDeviceInfo.physicalDevice;
-			context_._enabledDeviceFeatures = physicalDeviceInfo.enabledDeviceFeatures;
-			context_._enabledDeviceExtensions = physicalDeviceInfo.enabledDeviceExtensions;
-			context_._queueFamilyIndices = physicalDeviceInfo.queueFamilyIndices;
+			context_._physicalDevice = std::move(physicalDeviceInfo.physicalDevice);
+			context_._enabledDeviceFeatures = std::move(physicalDeviceInfo.enabledDeviceFeatures);
+			context_._enabledDeviceExtensions = std::move(physicalDeviceInfo.enabledDeviceExtensions);
+			context_._queueFamilyIndices = std::move(physicalDeviceInfo.queueFamilyIndices);
 		}
 
 		inline VKAPI_ATTR VkBool32 VKAPI_CALL ContextBuilder::defaultDebugCallback(
@@ -770,7 +771,7 @@ namespace jjyou {
 					res.requestedCriteria |= PhysicalDeviceInfo::Support::FeatureNotSupported;
 				if (required && !feature)
 					res.requiredCriteria |= PhysicalDeviceInfo::Support::FeatureNotSupported;
-				enable = ((requested || required) && feature) ? (::vk::True) : (::vk::False);
+				enable = ((requested || required) && feature) ? (VK_TRUE) : (VK_FALSE);
 			}
 			// Check extension support
 			std::set<std::string> enableDeviceExtensionSet = this->_enableDeviceExtensions;

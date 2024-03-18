@@ -165,15 +165,35 @@ namespace jjyou {
 		 ***********************************************************************/
 		struct PhysicalDeviceInfo {
 
+			/** @brief	Vulkan physical device.
+			  */
 			::vk::raii::PhysicalDevice physicalDevice{nullptr};
+
+			/** @brief	Physical device type.
+			  */
 			::vk::PhysicalDeviceType type = ::vk::PhysicalDeviceType::eOther;
+
+			/** @brief	Physical device features that can be enabled.
+			  * 
+			  * This variable may not be equal to the requested or required features
+			  * configured in the ContextBuilder.
+			  */
 			::vk::PhysicalDeviceFeatures enabledDeviceFeatures{};
+
+			/** @brief	Device extensions that can be enabled.
+			  *
+			  * This variable may not be equal to the required device extensions
+			  * configured in the ContextBuilder.
+			  */
 			std::set<std::string> enabledDeviceExtensions{};
+
+			/** @brief	Queue family indices.
+			  */
 			std::array<std::optional<std::uint32_t>, Context::QueueType::NumQueueTypes> queueFamilyIndices{};
 			
-			/* @enum	Support
-			 * @brief	Enum used to indicate the support of criteria of a physical device.
-			 */
+			/** @enum	Support
+			  * @brief	Enum used to indicate the support of criteria of a physical device.
+			  */
 			enum class Support : std::uint32_t {
 				AllSupported = 0x00000000,
 				TypeNotMatched = 0x00000001,
@@ -183,8 +203,18 @@ namespace jjyou {
 				UserDefinedCriteriaNotMet = 0x00000010,
 				Unknown = 0xFFFFFFFF,
 			};
-			Support requiredCriteria = Support::Unknown;
+
+			/** @brief	Support information for requested criteria.
+			  */
 			Support requestedCriteria = Support::Unknown;
+
+			/** @brief	Support information for required criteria.
+			  */
+			Support requiredCriteria = Support::Unknown;
+
+			/** @brief	Copy function
+			  *
+			  */
 		};
 
 		/***********************************************************************
@@ -541,7 +571,7 @@ namespace jjyou {
 			::vk::PhysicalDeviceFeatures _requestPhysicalDeviceFeatures = {};
 			::vk::PhysicalDeviceFeatures _requirePhysicalDeviceFeatures = {};
 			std::vector<std::function<bool(const PhysicalDeviceInfo&)>> _physicalDeviceSelectionCriteria = {};
-			PhysicalDeviceInfo _checkPhysicalDevice(const ::vk::raii::PhysicalDevice physicalDevice_) const;
+			PhysicalDeviceInfo _checkPhysicalDevice(const ::vk::raii::PhysicalDevice& physicalDevice_) const;
 
 		};
 
@@ -717,7 +747,7 @@ namespace jjyou {
 			return VK_FALSE;
 		}
 
-		inline PhysicalDeviceInfo ContextBuilder::_checkPhysicalDevice(const ::vk::raii::PhysicalDevice physicalDevice_) const {
+		inline PhysicalDeviceInfo ContextBuilder::_checkPhysicalDevice(const ::vk::raii::PhysicalDevice& physicalDevice_) const {
 			PhysicalDeviceInfo res;
 			res.physicalDevice = physicalDevice_;
 			res.requestedCriteria = PhysicalDeviceInfo::Support::AllSupported;

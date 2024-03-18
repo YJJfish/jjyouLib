@@ -50,8 +50,10 @@ namespace jjyou {
 		  */
 		inline std::ostream& operator<<(std::ostream& out, JsonType type);
 
-		/** @brief	JsonType enum class. It is used to identify the type of value stored in a json container.
-		  */
+		/***********************************************************************
+		 * @enum JsonType
+		 * @brief Enum class used to identify the type of value stored in a json container.
+		 ***********************************************************************/
 		enum class JsonType {
 			Null = 0,
 			Integer = 1,
@@ -86,16 +88,18 @@ namespace jjyou {
 		template <class IntegerTy, class FloatingTy, class StringTy, class BoolTy>
 		bool operator!=(const Json<IntegerTy, FloatingTy, StringTy, BoolTy>& json1, const Json<IntegerTy, FloatingTy, StringTy, BoolTy>& json2);
 
-		/** @brief	Json class for reading/writing json files.
-		  *
-		  * @tparam	IntegerTy	The integer type. Default is `int`.
-		  * @tparam	FloatingTy	The floating point type. Default is `float`.
-		  * @tparam	StringTy	The string type. Default is `std::string`. It must meet
-		  *						these requirements:
-		  *						 - strict weak orderable (i.e. StringTy::operator< is properly implemented.)
-		  *						 - defines `value_type` as its character type
-		  * @tparam	BoolTy		The boolean type. Default is `bool`.
-		  */
+		/***********************************************************************
+		 * @class	Json
+		 * @brief	Json class for reading/writing json files.
+		 *
+		 * @tparam	IntegerTy	The integer type. Default is `int`.
+		 * @tparam	FloatingTy	The floating point type. Default is `float`.
+		 * @tparam	StringTy	The string type. Default is `std::string`. It must meet
+		 *						these requirements:
+		 *						 - strict weak orderable (i.e. StringTy::operator< is properly implemented.)
+		 *						 - defines `value_type` as its character type
+		 * @tparam	BoolTy		The boolean type. Default is `bool`.
+		 ***********************************************************************/
 		template <
 			class IntegerTy = int,
 			class FloatingTy = float,
@@ -585,8 +589,10 @@ namespace jjyou {
 		template <class IntegerTy, class FloatingTy, class StringTy, class BoolTy>
 		inline bool operator!=(const JsonConstIterator<IntegerTy, FloatingTy, StringTy, BoolTy>& iter1, const JsonConstIterator<IntegerTy, FloatingTy, StringTy, BoolTy>& iter2);
 
-		/** @brief	Iterator type for Json class.
-		  */
+		/***********************************************************************
+		 * @class	JsonIterator
+		 * @brief	Iterator type for Json class.
+		 ***********************************************************************/
 		template <
 			class IntegerTy,
 			class FloatingTy,
@@ -686,8 +692,10 @@ namespace jjyou {
 
 		};
 
-		/** @brief	Const iterator type for Json class.
-		  */
+		/***********************************************************************
+		 * @class	JsonConstIterator
+		 * @brief	Const iterator type for Json class.
+		 ***********************************************************************/
 		template <
 			class IntegerTy,
 			class FloatingTy,

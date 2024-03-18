@@ -7,7 +7,6 @@
 #ifndef jjyou_vk_Loader_hpp
 #define jjyou_vk_Loader_hpp
 
-#include <vulkan/vulkan.h>
 #include <cstring>
 
 namespace jjyou {

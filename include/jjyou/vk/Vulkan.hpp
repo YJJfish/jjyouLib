@@ -9,6 +9,8 @@
 #ifndef jjyou_vk_Vulkan_hpp
 #define jjyou_vk_Vulkan_hpp
 
+#include <vulkan/vulkan_raii.hpp>
+#include "Context.hpp"
 #include "Loader.hpp"
 #include "Instance.hpp"
 #include "PhysicalDevice.hpp"

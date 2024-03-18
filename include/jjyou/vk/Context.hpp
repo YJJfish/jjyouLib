@@ -612,9 +612,10 @@ namespace jjyou {
 				::vk::InstanceCreateFlags(0U),
 				&applicationInfo,
 				enableLayers,
-				enableInstanceExtensions,
-				(this->_enableDebugUtilsMessenger) ? &debugUtilsMessengerCreateInfo : nullptr
+				enableInstanceExtensions
 			);
+			if (this->_enableDebugUtilsMessenger)
+				instanceCreateInfo.setPNext(&debugUtilsMessengerCreateInfo);
 			context_._instance = ::vk::raii::Instance(context_._context, instanceCreateInfo);
 			context_._enabledLayers = std::move(enableLayerSet);
 			context_._enabledInstanceExtensions = std::move(enableInstanceExtensionSet);

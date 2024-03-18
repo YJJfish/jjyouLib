@@ -16,7 +16,6 @@
 #include <optional>
 #include <stdexcept>
 #include <functional>
-#include <format>
 #include <iostream>
 
 namespace jjyou {
@@ -744,7 +743,7 @@ namespace jjyou {
 					return ret.substr(0, ret.length() - 2);
 				return "NONE";
 				};
-			std::cerr << std::format("[Vulkan Debug Callback] severity: {}, type: {}, message: {}", msgSeverity(messageSeverity), msgType(messageType), pCallbackData->pMessage) << std::endl;
+			std::cerr << "[Vulkan Debug Callback] severity: " << msgSeverity(messageSeverity) << ", type: " << msgType(messageType) << ", message : " << pCallbackData->pMessage << std::endl;
 			return VK_FALSE;
 		}
 

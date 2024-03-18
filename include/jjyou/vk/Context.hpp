@@ -213,9 +213,6 @@ namespace jjyou {
 			  */
 			Support requiredCriteria = Support::Unknown;
 
-			/** @brief	Copy function
-			  *
-			  */
 		};
 
 		/***********************************************************************
@@ -572,7 +569,7 @@ namespace jjyou {
 			::vk::PhysicalDeviceFeatures _requestPhysicalDeviceFeatures = {};
 			::vk::PhysicalDeviceFeatures _requirePhysicalDeviceFeatures = {};
 			std::vector<std::function<bool(const PhysicalDeviceInfo&)>> _physicalDeviceSelectionCriteria = {};
-			PhysicalDeviceInfo _checkPhysicalDevice(const ::vk::raii::PhysicalDevice& physicalDevice_) const;
+			PhysicalDeviceInfo _checkPhysicalDevice(const ::vk::raii::Instance& instance_, const ::vk::raii::PhysicalDevice& physicalDevice_) const;
 
 		};
 
@@ -669,7 +666,7 @@ namespace jjyou {
 			std::transform(
 				physicalDevices.cbegin(), physicalDevices.cend(),
 				std::back_inserter(res),
-				[&](const ::vk::raii::PhysicalDevice& physicalDevice_) {return this->_checkPhysicalDevice(physicalDevice_); }
+				[&](const ::vk::raii::PhysicalDevice& physicalDevice_) {return this->_checkPhysicalDevice(context_._instance, physicalDevice_); }
 			);
 			return res;
 		}
@@ -700,7 +697,7 @@ namespace jjyou {
 		}
 
 		inline void ContextBuilder::selectPhysicalDevice(Context& context_, const ::vk::raii::PhysicalDevice& physicalDevice_) const {
-			PhysicalDeviceInfo physicalDeviceInfo = this->_checkPhysicalDevice(physicalDevice_);
+			PhysicalDeviceInfo physicalDeviceInfo = this->_checkPhysicalDevice(context_._instance, physicalDevice_);
 			if (physicalDeviceInfo.requiredCriteria != PhysicalDeviceInfo::Support::AllSupported) {
 				throw std::runtime_error("[Vulkan ContextBuilder] The given physical device does not meet the selection criteria.");
 				return;
@@ -747,9 +744,9 @@ namespace jjyou {
 			return VK_FALSE;
 		}
 
-		inline PhysicalDeviceInfo ContextBuilder::_checkPhysicalDevice(const ::vk::raii::PhysicalDevice& physicalDevice_) const {
+		inline PhysicalDeviceInfo ContextBuilder::_checkPhysicalDevice(const ::vk::raii::Instance& instance_, const ::vk::raii::PhysicalDevice& physicalDevice_) const {
 			PhysicalDeviceInfo res;
-			res.physicalDevice = physicalDevice_;
+			res.physicalDevice = ::vk::raii::PhysicalDevice(instance_, *physicalDevice_); // Copy assignment of vk::raii::PhysicalDevice is unavailable on some old vulkan versions
 			res.requestedCriteria = PhysicalDeviceInfo::Support::AllSupported;
 			res.requiredCriteria = PhysicalDeviceInfo::Support::AllSupported;
 			// Check physical device type

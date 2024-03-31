@@ -12,13 +12,12 @@
 #include <limits>
 #include <algorithm>
 
-#include "PhysicalDevice.hpp"
-#include "Device.hpp"
-#include "utils.hpp"
-
 namespace jjyou {
 
 	namespace vk {
+
+		class Memory;
+		class MemoryAllocator;
 
 		class Memory {
 
@@ -28,15 +27,52 @@ namespace jjyou {
 			  */
 			Memory(void) {}
 
+			/** @brief	Copy constructor is disabled.
+			  */
+			Memory(const Memory&) = delete;
+
+			/** @brief	Move constructor.
+			  */
+			Memory(Memory&& other) : _pAllocator(other._pAllocator), _memory(other._memory), _size(other._size), _offset(other._offset), _mappedAddress(other._mappedAddress) {
+				other._pAllocator = nullptr;
+				other._memory = nullptr;
+				other._offset = 0ULL;
+				other._size = 0ULL;
+				other._mappedAddress = nullptr;
+			}
+
+			/** @brief	Copy assignment is disabled.
+			  */
+			Memory& operator=(const Memory&) = delete;
+
+			/** @brief	Move assignment.
+			  */
+			Memory& operator=(Memory&& other) {
+				if (&other != this) {
+					this->~Memory();
+					this->_pAllocator = other._pAllocator;
+					this->_memory = other._memory;
+					this->_offset = other._offset;
+					this->_size = other._size;
+					this->_mappedAddress = other._mappedAddress;
+					other._pAllocator = nullptr;
+					other._memory = nullptr;
+					other._offset = 0ULL;
+					other._size = 0ULL;
+					other._mappedAddress = nullptr;
+				}
+				return *this;
+			}
+
 			/** @brief	Destructor.
 			  */
-			~Memory(void) {}
+			~Memory(void);
 
 			/** @brief	Check whether the wrapper class contains a VkDeviceMemory instance.
 			  * @return `true` if not empty.
 			  */
 			bool has_value() const {
-				return (this->_memory != nullptr);
+				return (this->_pAllocator != nullptr);
 			}
 
 			/** @brief	Get the wrapped VkDeviceMemory instance.
@@ -61,6 +97,8 @@ namespace jjyou {
 
 		private:
 
+			MemoryAllocator* _pAllocator = nullptr;
+
 			VkDeviceMemory _memory = nullptr;
 
 			VkDeviceSize _size = 0ULL;
@@ -84,8 +122,8 @@ namespace jjyou {
 			/** @brief	Initialize allocator.
 			  * @param	device	Vulkan logical device.
 			  */
-			void init(const Device& device) {
-				this->device = &device;
+			void init(VkDevice device) {
+				this->device = device;
 			}
 
 			/** @brief	Destory allocator.
@@ -97,10 +135,12 @@ namespace jjyou {
 			/** @brief	Allocate memory.
 			  */
 			VkResult allocate(const VkMemoryAllocateInfo* pAllocateInfo, Memory& memory) {
-				VkResult res = vkAllocateMemory(this->device->get(), pAllocateInfo, nullptr, &memory._memory);
+				VkResult res = vkAllocateMemory(this->device, pAllocateInfo, nullptr, &memory._memory);
 				if (res == VK_SUCCESS) {
+					memory._pAllocator = this;
 					memory._offset = 0ULL;
 					memory._size = pAllocateInfo->allocationSize;
+					memory._mappedAddress = nullptr;
 				}
 				return res;
 			}
@@ -108,34 +148,56 @@ namespace jjyou {
 			/** @brief	Free memory.
 			  */
 			void free(Memory& memory) {
-				vkFreeMemory(this->device->get(), memory._memory, nullptr);
+				vkFreeMemory(this->device, memory._memory, nullptr);
+				memory._pAllocator = nullptr;
 				memory._memory = nullptr;
 				memory._offset = 0ULL;
 				memory._size = 0ULL;
+				memory._mappedAddress = nullptr;
 			}
 
 			VkResult map(Memory& memory) {
-				if (!memory.has_value()) return VK_ERROR_MEMORY_MAP_FAILED;
 				if (memory._mappedAddress != nullptr)
 					return VK_SUCCESS;
-				VkResult res = vkMapMemory(this->device->get(), memory._memory, memory._offset, memory._size, 0, &memory._mappedAddress);
+				VkResult res = vkMapMemory(this->device, memory._memory, memory._offset, memory._size, 0, &memory._mappedAddress);
 				return res;
 			}
 
 			VkResult unmap(Memory& memory) {
-				vkUnmapMemory(this->device->get(), memory._memory);
+				vkUnmapMemory(this->device, memory._memory);
 				memory._mappedAddress = nullptr;
 				return VK_SUCCESS;
 			}
 
 		private:
 
-			const Device* device = nullptr;
+			VkDevice device = nullptr;
 
 		};
 
 	}
 
 }
+
+/*======================================================================
+ | Implementation
+ ======================================================================*/
+ /// @cond
+
+namespace jjyou {
+
+	namespace vk {
+
+		inline Memory::~Memory(void) {
+			if (this->_pAllocator != nullptr) {
+				this->_pAllocator->free(*this);
+			}
+		}
+
+	}
+
+}
+
+/// @endcond
 
 #endif /* jjyou_vk_Memory_hpp */

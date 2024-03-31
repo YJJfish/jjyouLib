@@ -79,29 +79,37 @@ namespace jjyou {
 			  */
 			Context& operator=(Context&& other) noexcept {
 				if (this != &other) {
+					this->_headless = other._headless;
+					this->_validation = other._validation;
 					this->_context = std::move(other._context);
-					this->_debugUtilsMessenger = std::move(other._debugUtilsMessenger);
 					this->_instance = std::move(other._instance);
+					this->_enabledLayers = std::move(other._enabledLayers);
+					this->_enabledInstanceExtensions = std::move(other._enabledInstanceExtensions);
+					this->_debugUtilsMessenger = std::move(other._debugUtilsMessenger);
 					this->_physicalDevice = std::move(other._physicalDevice);
+					this->_enabledDeviceFeatures = other._enabledDeviceFeatures;
+					this->_enabledDeviceExtensions = std::move(other._enabledDeviceExtensions);
+					this->_queueFamilyIndices = other._queueFamilyIndices;
 					this->_device = std::move(other._device);
+					this->_queues = other._queues;
 				}
 				return *this;
 			}
 
-			/** @brief	Swap with another context.
+			/** @name	Getters.
 			  */
-			void swap(Context& other) noexcept {
-				std::swap(this->_context, other._context);
-				std::swap(this->_instance, other._instance);
-				std::swap(this->_debugUtilsMessenger, other._debugUtilsMessenger);
-				std::swap(this->_physicalDevice, other._physicalDevice);
-				std::swap(this->_device, other._device);
+			///@{
+
+			/** @brief	Get the headless mode.
+			  */
+			bool headless(void) const {
+				return this->_headless;
 			}
 
-			/** @brief	Get the vulkan context.
+			/** @brief	Get the validation mode.
 			  */
-			::vk::raii::Context& context(void) {
-				return this->_context;
+			bool validation(void) const {
+				return this->_validation;
 			}
 
 			/** @brief	Get the vulkan context.
@@ -116,6 +124,18 @@ namespace jjyou {
 				return this->_instance;
 			}
 
+			/** @brief	Get enabled layers.
+			  */
+			const std::set<std::string>& enabledLayers(void) const {
+				return this->_enabledLayers;
+			}
+
+			/** @brief	Get enabled instance extensions.
+			  */
+			const std::set<std::string>& enabledInstanceExtensions(void) const {
+				return this->_enabledInstanceExtensions;
+			}
+
 			/** @brief	Get the vulkan debug messenger.
 			  */
 			const ::vk::raii::DebugUtilsMessengerEXT& debugUtilsMessenger(void) const {
@@ -128,10 +148,16 @@ namespace jjyou {
 				return this->_physicalDevice;
 			}
 
-			/** @brief	Get the vulkan device.
+			/** @brief	Get enabled device features.
 			  */
-			const ::vk::raii::Device& device(void) const {
-				return this->_device;
+			const ::vk::PhysicalDeviceFeatures& enabledDeviceFeatures(void) const{
+				return this->_enabledDeviceFeatures;
+			}
+
+			/** @brief	Get enabled device extensions.
+			  */
+			const std::set<std::string>& enabledDeviceExtensions(void) const{
+				return this->_enabledDeviceExtensions;
 			}
 
 			/** @brief	Get the queue family index.
@@ -139,6 +165,58 @@ namespace jjyou {
 			const std::optional<uint32_t>& queueFamilyIndex(QueueType queueType_) const {
 				return this->_queueFamilyIndices[queueType_];
 			}
+
+			/** @brief	Get the vulkan device.
+			  */
+			const ::vk::raii::Device& device(void) const {
+				return this->_device;
+			}
+
+			/** @brief	Get the queue.
+			  */
+			const std::optional<::vk::raii::Queue>& queue(QueueType queueType_) const {
+				return this->_queues[queueType_];
+			}
+
+			///@}
+
+			/** @name	Helper functions
+			  */
+			///@{
+
+			/** @brief	Find suitable memory type.
+			  * @param	typeFilter_		Memory typebit. Usually passed as vk::MemoryRequirements::memoryTypeBits.
+			  * @param	properties_		Memory properties.
+			  * @return	Memory typebit.
+			  */
+			std::optional<std::uint32_t> findMemoryType(std::uint32_t typeFilter_, ::vk::MemoryPropertyFlags properties_) const {
+				::vk::PhysicalDeviceMemoryProperties memProperties = this->_physicalDevice.getMemoryProperties();
+				for (std::uint32_t i = 0; i < memProperties.memoryTypeCount; ++i) {
+					if ((typeFilter_ & (1U << i)) && (memProperties.memoryTypes[i].propertyFlags & properties_) == properties_) {
+						return i;
+					}
+				}
+				return std::nullopt;
+			}
+
+			/** @brief	Find supported format, given the tiling and tiling features.
+			  * @param	candidates_		Format candidates.
+			  * @param	tiling_			Tiling type.
+			  * @param	features_		Tiling features.
+			  * @return	Vulkan format. If not found, it will return `vk::Format::eUndefined`.
+			  */
+			::vk::Format findSupportedFormat(const std::vector<::vk::Format>& candidates_, ::vk::ImageTiling tiling_, ::vk::FormatFeatureFlags features_) const {
+				for (::vk::Format format : candidates_) {
+					::vk::FormatProperties formatProperties = this->_physicalDevice.getFormatProperties(format);
+					if (tiling_ == ::vk::ImageTiling::eLinear && (formatProperties.linearTilingFeatures & features_) == features_)
+						return format;
+					else if (tiling_ == ::vk::ImageTiling::eOptimal && (formatProperties.optimalTilingFeatures & features_) == features_)
+						return format;
+				}
+				return ::vk::Format::eUndefined;
+			}
+
+			///@}
 
 		private:
 
@@ -154,6 +232,7 @@ namespace jjyou {
 			std::set<std::string> _enabledDeviceExtensions{};
 			std::array<std::optional<std::uint32_t>, Context::QueueType::NumQueueTypes> _queueFamilyIndices{};
 			::vk::raii::Device _device{ nullptr };
+			std::array<std::optional<::vk::raii::Queue>, Context::QueueType::NumQueueTypes> _queues{ nullptr };
 
 			friend class ContextBuilder;
 
@@ -466,31 +545,36 @@ namespace jjyou {
 			}
 
 			/** @brief	Set requested physical device type.
-			  * @param	type_	The type of the physical device. If it is `std::nullopt`,
-			  *					this check will be disabled.
+			  * @param	type_	The type of the physical device.
 			  * 
-			  * By default, the requested physical device type is discrete GPU. The selector
-			  * will select a discrete GPU if available.
+			  * If you set requested physical device type, the selector will try to select
+			  * a physical device that matches your requested type. However, if such device
+			  * is not available, it may still select other devices.
+			  * By default, the there is no requested physical device type. In most cases
+			  * you may want to use this method to request a discrete GPU.
 			  */
-			ContextBuilder& requestPhysicalDeviceType(std::optional<::vk::PhysicalDeviceType> type_) {
+			ContextBuilder& requestPhysicalDeviceType(::vk::PhysicalDeviceType type_) {
 				this->_requestPhysicalDeviceType = type_;
 				return *this;
 			}
 
 			/** @brief	Set required physical device type.
-			  * @param	type_	The type of the physical device. If it is `std::nullopt`,
-			  *					this check will be disabled.
+			  * @param	type_	The type of the physical device.
 			  *
-			  * By default, the required physical device type is discrete GPU. The selector
-			  * will select a discrete GPU if available.
+			  * If you set required physical device type, those with other types will NOT be
+			  * considered.
+			  * By default, the there is no required physical device type.
 			  */
-			ContextBuilder& requirePhysicalDeviceType(std::optional<::vk::PhysicalDeviceType> type_) {
+			ContextBuilder& requirePhysicalDeviceType(::vk::PhysicalDeviceType type_) {
 				this->_requirePhysicalDeviceType = type_;
 				return *this;
 			}
 
 			/** @brief	Set requested physical device features to be enabled.
 			  * @param	features_	The features to be enabled.
+			  * 
+			  * If you set requested physical device features, the selected device
+			  * may still not support all these features.
 			  */
 			ContextBuilder& requestPhysicalDeviceFeatures(const ::vk::PhysicalDeviceFeatures& features_) {
 				this->_requestPhysicalDeviceFeatures = features_;
@@ -499,9 +583,28 @@ namespace jjyou {
 
 			/** @brief	Set required physical device features to be enabled.
 			  * @param	features_	The features to be enabled.
+			  * 
+			  * If you set required physical device features, the selector will select a device
+			  * that supports ALL these features.
 			  */
 			ContextBuilder& requirePhysicalDeviceFeatures(const ::vk::PhysicalDeviceFeatures& features_) {
 				this->_requirePhysicalDeviceFeatures = features_;
+				return *this;
+			}
+
+			/** @brief	Add a surface.
+			  * @param	surface_	The window surface.
+			  * @note	Before calling this function, make sure that headless mode
+			  *			is turned off in instance building stage.
+			  * 
+			  * If you have multiple surfaces (e.g. in a multi-window application),
+			  * call this function to add the surfaces one by one.
+			  * When selecting the physical devices and the queues, the builder
+			  * will query the surface support and ensure that the main queue can
+			  * present all the surfaces.
+			  */
+			ContextBuilder& addSurface(const ::vk::raii::SurfaceKHR& surface_) {
+				this->_surfaces.push_back(&surface_);
 				return *this;
 			}
 
@@ -540,6 +643,10 @@ namespace jjyou {
 			  */
 			void selectPhysicalDevice(Context& context_, const ::vk::raii::PhysicalDevice& physicalDevice_) const;
 
+			/** @brief	Build `vk::raii::Device`.
+			  */
+			void buildDevice(Context& context_) const;
+
 			///@}
 
 		private:
@@ -568,6 +675,7 @@ namespace jjyou {
 			std::optional<::vk::PhysicalDeviceType> _requirePhysicalDeviceType = std::nullopt;
 			::vk::PhysicalDeviceFeatures _requestPhysicalDeviceFeatures = {};
 			::vk::PhysicalDeviceFeatures _requirePhysicalDeviceFeatures = {};
+			std::vector<const ::vk::raii::SurfaceKHR*> _surfaces;
 			std::vector<std::function<bool(const PhysicalDeviceInfo&)>> _physicalDeviceSelectionCriteria = {};
 			PhysicalDeviceInfo _checkPhysicalDevice(const ::vk::raii::Instance& instance_, const ::vk::raii::PhysicalDevice& physicalDevice_) const;
 
@@ -648,13 +756,6 @@ namespace jjyou {
 			context_._enabledLayers = std::move(enableLayerSet);
 			context_._enabledInstanceExtensions = std::move(enableInstanceExtensionSet);
 			if (this->_enableDebugUtilsMessenger) {
-				::vk::DebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo(
-					::vk::DebugUtilsMessengerCreateFlagsEXT(0U),
-					this->_debugUtilsMessengerInfo.messageSeverity,
-					this->_debugUtilsMessengerInfo.messageType,
-					this->_debugUtilsMessengerInfo.pfnUserCallback,
-					this->_debugUtilsMessengerInfo.pUserData
-				);
 				context_._debugUtilsMessenger = ::vk::raii::DebugUtilsMessengerEXT(context_._instance, debugUtilsMessengerCreateInfo);
 			}
 		}
@@ -706,6 +807,48 @@ namespace jjyou {
 			context_._enabledDeviceFeatures = std::move(physicalDeviceInfo.enabledDeviceFeatures);
 			context_._enabledDeviceExtensions = std::move(physicalDeviceInfo.enabledDeviceExtensions);
 			context_._queueFamilyIndices = std::move(physicalDeviceInfo.queueFamilyIndices);
+		}
+
+		inline void ContextBuilder::buildDevice(Context& context_) const {
+			std::vector<::vk::DeviceQueueCreateInfo> deviceQueueCreateInfos;
+			float queuePriority = 1.0f;
+			for (std::size_t i = 0; i < Context::QueueType::NumQueueTypes; ++i) {
+				if (context_._queueFamilyIndices[i].has_value()) {
+					deviceQueueCreateInfos.emplace_back(
+						::vk::DeviceQueueCreateFlags{ 0U },
+						*context_._queueFamilyIndices[i],
+						1U,
+						&queuePriority
+					);
+				}
+			}
+			std::vector<const char*> enableLayers;
+			enableLayers.reserve(context_._enabledLayers.size());
+			std::transform(
+				context_._enabledLayers.cbegin(), context_._enabledLayers.cend(),
+				std::back_inserter(enableLayers),
+				[](const std::string& s) { return s.c_str(); }
+			);
+			std::vector<const char*> enableDeviceExtensions;
+			enableDeviceExtensions.reserve(context_._enabledDeviceExtensions.size());
+			std::transform(
+				context_._enabledDeviceExtensions.cbegin(), context_._enabledDeviceExtensions.cend(),
+				std::back_inserter(enableDeviceExtensions),
+				[](const std::string& s) { return s.c_str(); }
+			);
+			::vk::DeviceCreateInfo deviceCreateInfo(
+				::vk::DeviceCreateFlags{ 0U },
+				deviceQueueCreateInfos,
+				enableLayers,
+				enableDeviceExtensions,
+				&context_._enabledDeviceFeatures
+			);
+			context_._device = ::vk::raii::Device(context_._physicalDevice, deviceCreateInfo);
+			for (std::size_t i = 0; i < Context::QueueType::NumQueueTypes; ++i) {
+				if (context_._queueFamilyIndices[i].has_value()) {
+					context_._queues[i] = context_._device.getQueue(*context_._queueFamilyIndices[i], 0U);
+				}
+			}
 		}
 
 		inline VKAPI_ATTR VkBool32 VKAPI_CALL ContextBuilder::defaultDebugCallback(
@@ -788,10 +931,21 @@ namespace jjyou {
 			std::vector<::vk::QueueFamilyProperties> queueFamilyProperties = physicalDevice_.getQueueFamilyProperties();
 			for (std::size_t i = 0; i < queueFamilyProperties.size(); ++i) {
 				const auto& queueFamilyProperty = queueFamilyProperties[i];
+				bool presentSupport = true;
+				if (!this->_headless) {
+					for (const auto& surface : this->_surfaces) {
+						::vk::Bool32 supportCurrSurface = physicalDevice_.getSurfaceSupportKHR(static_cast<std::uint32_t>(i), **surface);
+						if (!supportCurrSurface) {
+							presentSupport = false;
+							break;
+						}
+					}
+				}
 				if (!res.queueFamilyIndices[Context::QueueType::Main].has_value() &&
 					(queueFamilyProperty.queueFlags & ::vk::QueueFlagBits::eGraphics) &&
 					(queueFamilyProperty.queueFlags & ::vk::QueueFlagBits::eCompute) &&
-					(queueFamilyProperty.queueFlags & ::vk::QueueFlagBits::eTransfer))
+					(queueFamilyProperty.queueFlags & ::vk::QueueFlagBits::eTransfer) &&
+					presentSupport)
 					res.queueFamilyIndices[Context::QueueType::Main] = static_cast<std::uint32_t>(i);
 				if (!res.queueFamilyIndices[Context::QueueType::Compute].has_value() &&
 					(queueFamilyProperty.queueFlags & ::vk::QueueFlagBits::eCompute) &&

@@ -1836,25 +1836,26 @@ namespace jjyou {
 			Token _number(void) {
 				Token res(JsonTokenType::Integer, this->line, this->col, this->pos);
 				StringType string{};
+				CharType curr{};
 				IntegerType integer = static_cast<IntegerType>(0);
 				FloatingType floating = static_cast<FloatingType>(0.0);
 				constexpr IntegerType baseInteger = static_cast<IntegerType>(10);
 				constexpr FloatingType baseFloating = static_cast<FloatingType>(10.0);
 				bool positive = true;
 				if (this->input.peek() == static_cast<CharType>('-')) {
-					CharType curr = this->input.get(); this->_updateTrace(curr);
+					curr = this->input.get(); this->_updateTrace(curr);
 					string.push_back(curr);
 					positive = false;
 				}
 				else if (this->input.peek() == static_cast<CharType>('+')) {
-					CharType curr = this->input.get(); this->_updateTrace(curr);
+					curr = this->input.get(); this->_updateTrace(curr);
 					string.push_back(curr);
 					positive = true;
 				}
 				std::size_t numBeforeDecimal = 0ULL;
 				while (!this->input.eof() && this->_isDigit(this->input.peek())) {
 					++numBeforeDecimal;
-					CharType curr = this->input.get(); this->_updateTrace(curr);
+					curr = this->input.get(); this->_updateTrace(curr);
 					string.push_back(curr);
 					integer = integer * baseInteger + static_cast<IntegerType>(curr - static_cast<CharType>('0'));
 					floating = floating * baseFloating + static_cast<FloatingType>(curr - static_cast<CharType>('0'));
@@ -1862,14 +1863,14 @@ namespace jjyou {
 				std::size_t numAfterDecimal = 0ULL;
 				if (!this->input.eof() && this->input.peek() == static_cast<CharType>('.')) {
 					// '.'
-					CharType curr = this->input.get(); this->_updateTrace(curr);
+					curr = this->input.get(); this->_updateTrace(curr);
 					string.push_back(curr);
 					res.type = JsonTokenType::Floating;
 					FloatingType decimal = static_cast<FloatingType>(1.0);
 					while (!this->input.eof() && this->_isDigit(this->input.peek())) {
 						++numAfterDecimal;
 						decimal /= baseFloating;
-						CharType curr = this->input.get(); this->_updateTrace(curr);
+						curr = this->input.get(); this->_updateTrace(curr);
 						string.push_back(curr);
 						floating += decimal * static_cast<FloatingType>(curr - static_cast<CharType>('0'));
 					}
@@ -1893,7 +1894,7 @@ namespace jjyou {
 				}
 				// 'e' or 'E'
 				res.type = JsonTokenType::Floating;
-				CharType curr = this->input.get(); this->_updateTrace(curr);
+				curr = this->input.get(); this->_updateTrace(curr);
 				string.push_back(curr);
 				if (this->input.eof()) {
 					res.type = JsonTokenType::Unexpected;
@@ -1903,32 +1904,32 @@ namespace jjyou {
 				FloatingType exponential = static_cast<FloatingType>(0.0);
 				bool exponentialPositive = true;
 				if (this->input.peek() == static_cast<CharType>('-')) {
-					CharType curr = this->input.get(); this->_updateTrace(curr);
+					curr = this->input.get(); this->_updateTrace(curr);
 					string.push_back(curr);
 					exponentialPositive = false;
 				}
 				else if (this->input.peek() == static_cast<CharType>('+')) {
-					CharType curr = this->input.get(); this->_updateTrace(curr);
+					curr = this->input.get(); this->_updateTrace(curr);
 					string.push_back(curr);
 					exponentialPositive = true;
 				}
 				std::size_t numAfterExponentialBeforeDecimal = 0ULL;
 				while (!this->input.eof() && this->_isDigit(this->input.peek())) {
 					++numAfterExponentialBeforeDecimal;
-					CharType curr = this->input.get(); this->_updateTrace(curr);
+					curr = this->input.get(); this->_updateTrace(curr);
 					string.push_back(curr);
 					exponential = exponential * baseFloating + static_cast<FloatingType>(curr - static_cast<CharType>('0'));
 				}
 				std::size_t numAfterExponentialAfterDecimal = 0ULL;
 				if (!this->input.eof() && this->input.peek() == static_cast<CharType>('.')) {
 					// '.'
-					CharType curr = this->input.get(); this->_updateTrace(curr);
+					curr = this->input.get(); this->_updateTrace(curr);
 					string.push_back(curr);
 					FloatingType decimal = static_cast<FloatingType>(1.0);
 					while (!this->input.eof() && this->_isDigit(this->input.peek())) {
 						++numAfterExponentialAfterDecimal;
 						decimal /= baseFloating;
-						CharType curr = this->input.get(); this->_updateTrace(curr);
+						curr = this->input.get(); this->_updateTrace(curr);
 						string.push_back(curr);
 						exponential += decimal * static_cast<FloatingType>(curr - static_cast<CharType>('0'));
 					}
@@ -1952,7 +1953,7 @@ namespace jjyou {
 				CharType curr = this->input.get(); this->_updateTrace(curr); // '\"'
 				string.push_back(curr);
 				while (!this->input.eof()) {
-					CharType curr = this->input.get(); this->_updateTrace(curr);
+					curr = this->input.get(); this->_updateTrace(curr);
 					string.push_back(curr);
 					if (curr == '\"') {
 						findEnd = true;

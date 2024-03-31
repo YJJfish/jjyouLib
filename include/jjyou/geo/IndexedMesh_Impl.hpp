@@ -57,7 +57,7 @@ namespace jjyou {
 					vertexNormals[corner.vIdx] += corner.normal;
 				}
 			}
-			for (Vec& normal : vertexNormals) {
+			for (Vec3& normal : vertexNormals) {
 				normal.normalize();
 			}
 			for (const Face& f : this->_faces) {

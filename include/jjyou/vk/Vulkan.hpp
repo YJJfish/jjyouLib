@@ -11,10 +11,6 @@
 
 #include <vulkan/vulkan_raii.hpp>
 #include "Context.hpp"
-#include "Loader.hpp"
-#include "Instance.hpp"
-#include "PhysicalDevice.hpp"
-#include "Device.hpp"
 #include "Swapchain.hpp"
 #include "Memory.hpp"
 #include "Texture.hpp"

@@ -99,7 +99,7 @@ namespace jjyou {
 #if defined(JJYOU_USE_OPENGL)
 			T tanHalfYFov = std::tan(yFov / static_cast<T>(2.0));
 			T tanHalfXFov = aspectRatio * tanHalfYFov;
-			mat<T, 4, 4> res;
+			mat<T, 4, 4> res{};
 			res[0][0] = static_cast<T>(1.0) / tanHalfXFov;
 			res[1][1] = -static_cast<T>(1.0) / tanHalfYFov;
 			res[2][2] = (zFar + zNear) / (zFar - zNear);
@@ -109,12 +109,40 @@ namespace jjyou {
 #elif defined(JJYOU_USE_VULKAN)
 			T tanHalfYFov = std::tan(yFov / static_cast<T>(2.0));
 			T tanHalfXFov = aspectRatio * tanHalfYFov;
-			mat<T, 4, 4> res;
+			mat<T, 4, 4> res{};
 			res[0][0] = static_cast<T>(1.0) / tanHalfXFov;
 			res[1][1] = static_cast<T>(1.0) / tanHalfYFov;
 			res[2][2] = zFar / (zFar - zNear);
 			res[2][3] = static_cast<T>(1.0);
 			res[3][2] = -(zFar * zNear) / (zFar - zNear);
+			return res;
+#endif
+		}
+
+		/** @brief	Get orthographic camera projection matrix
+		  *			according to y fov, aspect ratio, near clipping plane and far clipping plane.
+		  * @param	yFov		Field of view in y direction.
+		  * @param	aspectRatio	Aspect ratio (width / height).
+		  * @param	zNear		Near clipping plane.
+		  * @param	zFar		Far clipping plane.
+		  * @return	4x4 perspective projection matrix.
+		  */
+		template <class T> mat<T, 4, 4> orthographic(T width, T height, T zNear, T zFar) {
+#if defined(JJYOU_USE_OPENGL)
+			mat<T, 4, 4> res;
+			res[0][0] = static_cast<T>(2.0) / width;
+			res[1][1] = -static_cast<T>(2.0) / height;
+			res[2][2] = static_cast<T>(2.0) / (zFar - zNear);
+			res[3][2] = -(zFar + zNear) / (zFar - zNear);
+			res[3][3] = static_cast<T>(1.0);
+			return res;
+#elif defined(JJYOU_USE_VULKAN)
+			mat<T, 4, 4> res;
+			res[0][0] = static_cast<T>(2.0) / width;
+			res[1][1] = static_cast<T>(2.0) / height;
+			res[2][2] = static_cast<T>(1.0) / (zFar - zNear);
+			res[3][2] = -zNear / (zFar - zNear);
+			res[3][3] = static_cast<T>(1.0);
 			return res;
 #endif
 		}

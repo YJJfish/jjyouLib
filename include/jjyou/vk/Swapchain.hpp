@@ -66,7 +66,9 @@ namespace jjyou {
 			Swapchain& operator=(Swapchain&& other) noexcept {
 				if (this != &other) {
 					this->_pContext = other._pContext;
+					this->_surface = other._surface;
 					this->_swapchain = std::move(other._swapchain);
+					this->_numImages = other._numImages;
 					this->_images = std::move(other._images);
 					this->_imageViews = std::move(other._imageViews);
 					this->_surfaceFormat = other._surfaceFormat;
@@ -79,7 +81,7 @@ namespace jjyou {
 			/** @brief	Get the number of images in the swapchain.
 			  * @return The number of images in the swapchain.
 			  */
-			std::uint32_t imageCount(void) const { return static_cast<std::uint32_t>(this->_images.size()); }
+			std::uint32_t numImages(void) const { return this->_numImages; }
 
 			/** @brief	Get the underlying Vulkan swapchain.
 			  * @return The Vulkan swapchain instance.
@@ -116,7 +118,9 @@ namespace jjyou {
 		private:
 
 			const Context* _pContext{ nullptr };
+			::vk::SurfaceKHR _surface{ nullptr };
 			::vk::raii::SwapchainKHR _swapchain{ nullptr };
+			std::uint32_t _numImages{};
 			std::vector<::vk::Image> _images = {};
 			std::vector<::vk::raii::ImageView> _imageViews = {};
 			::vk::SurfaceFormatKHR _surfaceFormat = {};
@@ -141,7 +145,7 @@ namespace jjyou {
 			  * @param	context_	The Vulkan context.
 			  * @param	surface_	The Vulkan surface.
 			  */
-			SwapchainBuilder(const Context& context_, const ::vk::raii::SurfaceKHR& surface_) : _pContext(&context_), _pSurface(&surface_) {}
+			SwapchainBuilder(const Context& context_, const ::vk::SurfaceKHR& surface_) : _pContext(&context_), _surface(surface_) {}
 
 			/** @brief	Set requested surface format.
 			  * @param	format_		Surface format.
@@ -193,21 +197,16 @@ namespace jjyou {
 				return *this;
 			}
 
-			/** @brief	Set old swapchain.
-			  * @param	_oldSwapchain	The old swapchain.
-			  */
-			SwapchainBuilder& oldSwapchain(const Swapchain& _oldSwapchain) {
-				this->_pOldSwapchain = &_oldSwapchain;
-				return *this;
-			}
-
 			/** @brief	Build the swapchain and related resources.
-			  * @param	extent_		Swapchain extent.
+			  * @param	extent_			Swapchain extent.
+			  * @param	oldSwapchain_	The old swapchain. This parameter is a r-value because the
+			  *							builder will take the ownership of it and reuse it to create
+			  *							the new swapchain.
 			  */
-			Swapchain build(::vk::Extent2D extent_) const {
-				::vk::SurfaceCapabilitiesKHR capabilities = this->_pContext->physicalDevice().getSurfaceCapabilitiesKHR(**this->_pSurface);
-				std::vector<::vk::SurfaceFormatKHR> supportedSurfaceFormats = this->_pContext->physicalDevice().getSurfaceFormatsKHR(**this->_pSurface);
-				std::vector<::vk::PresentModeKHR> supportedPresentModes = this->_pContext->physicalDevice().getSurfacePresentModesKHR(**this->_pSurface);
+			Swapchain build(::vk::Extent2D extent_, Swapchain&& oldSwapchain_ = { nullptr }) const {
+				::vk::SurfaceCapabilitiesKHR capabilities = this->_pContext->physicalDevice().getSurfaceCapabilitiesKHR(this->_surface);
+				std::vector<::vk::SurfaceFormatKHR> supportedSurfaceFormats = this->_pContext->physicalDevice().getSurfaceFormatsKHR(this->_surface);
+				std::vector<::vk::PresentModeKHR> supportedPresentModes = this->_pContext->physicalDevice().getSurfacePresentModesKHR(this->_surface);
 				if (supportedSurfaceFormats.empty())
 					throw std::runtime_error("[Vulkan SwapchainBuilder] No supported surface format for the surface.");
 				if (supportedPresentModes.empty())
@@ -258,7 +257,7 @@ namespace jjyou {
 					minImageCount = capabilities.maxImageCount;
 				::vk::SwapchainCreateInfoKHR swapchainCreateInfo(
 					::vk::SwapchainCreateFlagsKHR(0U),
-					**this->_pSurface,
+					this->_surface,
 					minImageCount,
 					surfaceFormat.format,
 					surfaceFormat.colorSpace,
@@ -272,15 +271,17 @@ namespace jjyou {
 					::vk::CompositeAlphaFlagBitsKHR::eOpaque,
 					presentMode,
 					VK_TRUE,
-					(this->_pOldSwapchain == nullptr) ? nullptr : *this->_pOldSwapchain->_swapchain
+					*oldSwapchain_._swapchain
 				);
 				Swapchain swapchain{nullptr};
 				swapchain._pContext = this->_pContext;
+				swapchain._surface = this->_surface;
 				swapchain._swapchain = ::vk::raii::SwapchainKHR(this->_pContext->device(), swapchainCreateInfo);
 				swapchain._surfaceFormat = surfaceFormat;
 				swapchain._presentMode = presentMode;
 				swapchain._extent = extent;
 				swapchain._images = swapchain._swapchain.getImages();
+				swapchain._numImages = static_cast<std::uint32_t>(swapchain._images.size());
 				swapchain._imageViews.reserve(swapchain._images.size());
 				for (std::size_t i = 0; i < swapchain._images.size(); ++i) {
 					::vk::ImageViewCreateInfo imageViewCreateInfo(
@@ -304,18 +305,18 @@ namespace jjyou {
 					);
 					swapchain._imageViews.emplace_back(this->_pContext->device(), imageViewCreateInfo);
 				}
+				oldSwapchain_.~Swapchain();
 				return swapchain;
 			}
 
 		private:
 
 			const Context* _pContext;
-			const ::vk::raii::SurfaceKHR* _pSurface;
+			::vk::SurfaceKHR _surface;
 			std::vector<::vk::SurfaceFormatKHR> _requestSurfaceFormats{};
 			std::optional<::vk::SurfaceFormatKHR> _requireSurfaceFormat = std::nullopt;
 			std::vector<::vk::PresentModeKHR> _requestPresentModes{};
 			std::optional<::vk::PresentModeKHR> _requirePresentMode = std::nullopt;
-			const Swapchain* _pOldSwapchain{ nullptr };
 
 		};
 

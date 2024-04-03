@@ -65,7 +65,7 @@ namespace jjyou {
 
 			/** @brief	Move constructor.
 			  */
-			Context(Context&& other) = default;
+			Context(Context&& other_) = default;
 
 			/** @brief	Destructor.
 			  */
@@ -77,21 +77,21 @@ namespace jjyou {
 
 			/** @brief	Move assignment.
 			  */
-			Context& operator=(Context&& other) noexcept {
-				if (this != &other) {
-					this->_headless = other._headless;
-					this->_validation = other._validation;
-					this->_context = std::move(other._context);
-					this->_instance = std::move(other._instance);
-					this->_enabledLayers = std::move(other._enabledLayers);
-					this->_enabledInstanceExtensions = std::move(other._enabledInstanceExtensions);
-					this->_debugUtilsMessenger = std::move(other._debugUtilsMessenger);
-					this->_physicalDevice = std::move(other._physicalDevice);
-					this->_enabledDeviceFeatures = other._enabledDeviceFeatures;
-					this->_enabledDeviceExtensions = std::move(other._enabledDeviceExtensions);
-					this->_queueFamilyIndices = other._queueFamilyIndices;
-					this->_device = std::move(other._device);
-					this->_queues = other._queues;
+			Context& operator=(Context&& other_) noexcept {
+				if (this != &other_) {
+					this->_headless = other_._headless;
+					this->_validation = other_._validation;
+					this->_context = std::move(other_._context);
+					this->_instance = std::move(other_._instance);
+					this->_enabledLayers = std::move(other_._enabledLayers);
+					this->_enabledInstanceExtensions = std::move(other_._enabledInstanceExtensions);
+					this->_debugUtilsMessenger = std::move(other_._debugUtilsMessenger);
+					this->_physicalDevice = std::move(other_._physicalDevice);
+					this->_enabledDeviceFeatures = other_._enabledDeviceFeatures;
+					this->_enabledDeviceExtensions = std::move(other_._enabledDeviceExtensions);
+					this->_queueFamilyIndices = other_._queueFamilyIndices;
+					this->_device = std::move(other_._device);
+					this->_queues = other_._queues;
 				}
 				return *this;
 			}
@@ -165,6 +165,9 @@ namespace jjyou {
 			const std::optional<uint32_t>& queueFamilyIndex(QueueType queueType_) const {
 				return this->_queueFamilyIndices[queueType_];
 			}
+			const std::optional<uint32_t>& queueFamilyIndex(std::size_t queueType_) const {
+				return this->_queueFamilyIndices[queueType_];
+			}
 
 			/** @brief	Get the vulkan device.
 			  */
@@ -175,6 +178,9 @@ namespace jjyou {
 			/** @brief	Get the queue.
 			  */
 			const std::optional<::vk::raii::Queue>& queue(QueueType queueType_) const {
+				return this->_queues[queueType_];
+			}
+			const std::optional<::vk::raii::Queue>& queue(std::size_t queueType_) const {
 				return this->_queues[queueType_];
 			}
 
@@ -293,6 +299,19 @@ namespace jjyou {
 			Support requiredCriteria = Support::Unknown;
 
 		};
+
+		/** @brief	Bitwise or operator for PhysicalDeviceInfo::Support.
+		  */
+		inline PhysicalDeviceInfo::Support operator|(PhysicalDeviceInfo::Support x, PhysicalDeviceInfo::Support y) {
+			return static_cast<PhysicalDeviceInfo::Support>(static_cast<std::underlying_type_t<PhysicalDeviceInfo::Support>>(x) | static_cast<std::underlying_type_t<PhysicalDeviceInfo::Support>>(y));
+		}
+
+		/** @brief	Bitwise or operator for PhysicalDeviceInfo::Support.
+		  */
+		inline PhysicalDeviceInfo::Support& operator|=(PhysicalDeviceInfo::Support& x, PhysicalDeviceInfo::Support y) {
+			x = x | y;
+			return x;
+		}
 
 		/***********************************************************************
 		 * @class ContextBuilder
@@ -603,8 +622,8 @@ namespace jjyou {
 			  * will query the surface support and ensure that the main queue can
 			  * present all the surfaces.
 			  */
-			ContextBuilder& addSurface(const ::vk::raii::SurfaceKHR& surface_) {
-				this->_surfaces.push_back(&surface_);
+			ContextBuilder& addSurface(const ::vk::SurfaceKHR& surface_) {
+				this->_surfaces.push_back(surface_);
 				return *this;
 			}
 
@@ -675,7 +694,7 @@ namespace jjyou {
 			std::optional<::vk::PhysicalDeviceType> _requirePhysicalDeviceType = std::nullopt;
 			::vk::PhysicalDeviceFeatures _requestPhysicalDeviceFeatures = {};
 			::vk::PhysicalDeviceFeatures _requirePhysicalDeviceFeatures = {};
-			std::vector<const ::vk::raii::SurfaceKHR*> _surfaces;
+			std::vector<::vk::SurfaceKHR> _surfaces;
 			std::vector<std::function<bool(const PhysicalDeviceInfo&)>> _physicalDeviceSelectionCriteria = {};
 			PhysicalDeviceInfo _checkPhysicalDevice(const ::vk::raii::Instance& instance_, const ::vk::raii::PhysicalDevice& physicalDevice_) const;
 
@@ -690,19 +709,13 @@ namespace jjyou {
  ======================================================================*/
 /// @cond
 
+#ifdef JJYOU_VK_IMPLEMENTATION
+
 namespace jjyou {
 
 	namespace vk {
 
-		inline PhysicalDeviceInfo::Support operator|(PhysicalDeviceInfo::Support x, PhysicalDeviceInfo::Support y) {
-			return static_cast<PhysicalDeviceInfo::Support>(static_cast<std::underlying_type_t<PhysicalDeviceInfo::Support>>(x) | static_cast<std::underlying_type_t<PhysicalDeviceInfo::Support>>(y));
-		}
-		inline PhysicalDeviceInfo::Support& operator|=(PhysicalDeviceInfo::Support& x, PhysicalDeviceInfo::Support y) {
-			x = x | y;
-			return x;
-		}
-
-		inline void ContextBuilder::buildInstance(Context& context_) const {
+		void ContextBuilder::buildInstance(Context& context_) const {
 			context_._headless = this->_headless;
 			context_._validation = this->_enableValidationLayer;
 			std::set<std::string> enableLayerSet = this->_enableLayers;
@@ -760,7 +773,7 @@ namespace jjyou {
 			}
 		}
 
-		inline std::vector<PhysicalDeviceInfo> ContextBuilder::listPhysicalDevices(const Context& context_) const {
+		std::vector<PhysicalDeviceInfo> ContextBuilder::listPhysicalDevices(const Context& context_) const {
 			std::vector<PhysicalDeviceInfo> res;
 			std::vector<::vk::raii::PhysicalDevice> physicalDevices = context_._instance.enumeratePhysicalDevices();
 			res.reserve(physicalDevices.size());
@@ -772,7 +785,7 @@ namespace jjyou {
 			return res;
 		}
 
-		inline void ContextBuilder::selectPhysicalDevice(Context& context_) const {
+		void ContextBuilder::selectPhysicalDevice(Context& context_) const {
 			std::vector<PhysicalDeviceInfo> physicalDeviceInfos = this->listPhysicalDevices(context_);
 			std::optional<std::size_t> candidate = std::nullopt;
 			for (std::size_t i = 0; i < physicalDeviceInfos.size(); ++i) {
@@ -797,7 +810,7 @@ namespace jjyou {
 			context_._queueFamilyIndices = std::move(physicalDeviceInfo.queueFamilyIndices);
 		}
 
-		inline void ContextBuilder::selectPhysicalDevice(Context& context_, const ::vk::raii::PhysicalDevice& physicalDevice_) const {
+		void ContextBuilder::selectPhysicalDevice(Context& context_, const ::vk::raii::PhysicalDevice& physicalDevice_) const {
 			PhysicalDeviceInfo physicalDeviceInfo = this->_checkPhysicalDevice(context_._instance, physicalDevice_);
 			if (physicalDeviceInfo.requiredCriteria != PhysicalDeviceInfo::Support::AllSupported) {
 				throw std::runtime_error("[Vulkan ContextBuilder] The given physical device does not meet the selection criteria.");
@@ -809,7 +822,7 @@ namespace jjyou {
 			context_._queueFamilyIndices = std::move(physicalDeviceInfo.queueFamilyIndices);
 		}
 
-		inline void ContextBuilder::buildDevice(Context& context_) const {
+		void ContextBuilder::buildDevice(Context& context_) const {
 			std::vector<::vk::DeviceQueueCreateInfo> deviceQueueCreateInfos;
 			float queuePriority = 1.0f;
 			for (std::size_t i = 0; i < Context::QueueType::NumQueueTypes; ++i) {
@@ -851,7 +864,7 @@ namespace jjyou {
 			}
 		}
 
-		inline VKAPI_ATTR VkBool32 VKAPI_CALL ContextBuilder::defaultDebugCallback(
+		VKAPI_ATTR VkBool32 VKAPI_CALL ContextBuilder::defaultDebugCallback(
 			VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 			VkDebugUtilsMessageTypeFlagsEXT messageType,
 			const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
@@ -887,7 +900,7 @@ namespace jjyou {
 			return VK_FALSE;
 		}
 
-		inline PhysicalDeviceInfo ContextBuilder::_checkPhysicalDevice(const ::vk::raii::Instance& instance_, const ::vk::raii::PhysicalDevice& physicalDevice_) const {
+		PhysicalDeviceInfo ContextBuilder::_checkPhysicalDevice(const ::vk::raii::Instance& instance_, const ::vk::raii::PhysicalDevice& physicalDevice_) const {
 			PhysicalDeviceInfo res;
 			res.physicalDevice = ::vk::raii::PhysicalDevice(instance_, *physicalDevice_); // Copy assignment of vk::raii::PhysicalDevice is unavailable on some old vulkan versions
 			res.requestedCriteria = PhysicalDeviceInfo::Support::AllSupported;
@@ -934,7 +947,7 @@ namespace jjyou {
 				bool presentSupport = true;
 				if (!this->_headless) {
 					for (const auto& surface : this->_surfaces) {
-						::vk::Bool32 supportCurrSurface = physicalDevice_.getSurfaceSupportKHR(static_cast<std::uint32_t>(i), **surface);
+						::vk::Bool32 supportCurrSurface = physicalDevice_.getSurfaceSupportKHR(static_cast<std::uint32_t>(i), surface);
 						if (!supportCurrSurface) {
 							presentSupport = false;
 							break;
@@ -979,6 +992,8 @@ namespace jjyou {
 	}
 
 }
+
+#endif /* JJYOU_VK_IMPLEMENTATION */
 
 /// @endcond
 

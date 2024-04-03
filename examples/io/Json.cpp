@@ -15,7 +15,7 @@ void exampleConstruct(void) {
 	std::cout << json2.type() << std::endl;		// Integer
 	std::cout << json2.size() << std::endl;		// 1
 	
-	Json json3 = 1.0f;							// Or `Json json3 = 1.0f;`.
+	Json json3(1.0f);							// Or `Json json3 = 1.0f;`.
 	std::cout << json3.type() << std::endl;		// Floating
 	std::cout << json3.size() << std::endl;		// 1
 	

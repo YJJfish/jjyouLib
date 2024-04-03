@@ -13,6 +13,7 @@
 #include "Context.hpp"
 #include "Swapchain.hpp"
 #include "Memory.hpp"
+#include "Vma.hpp"
 #include "Texture.hpp"
 #include "utils.hpp"
 

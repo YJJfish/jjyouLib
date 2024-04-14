@@ -33,7 +33,7 @@ namespace jjyou {
 
 			/** @brief	Move constructor.
 			  */
-			Memory(Memory&& other) : _pAllocator(other._pAllocator), _memory(other._memory), _size(other._size), _offset(other._offset), _mappedAddress(other._mappedAddress) {
+			Memory(Memory&& other) noexcept : _pAllocator(other._pAllocator), _memory(other._memory), _size(other._size), _offset(other._offset), _mappedAddress(other._mappedAddress) {
 				other._pAllocator = nullptr;
 				other._memory = nullptr;
 				other._offset = 0ULL;
@@ -47,7 +47,7 @@ namespace jjyou {
 
 			/** @brief	Move assignment.
 			  */
-			Memory& operator=(Memory&& other) {
+			Memory& operator=(Memory&& other) noexcept {
 				if (&other != this) {
 					this->~Memory();
 					this->_pAllocator = other._pAllocator;

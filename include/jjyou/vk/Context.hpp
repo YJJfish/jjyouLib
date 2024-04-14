@@ -44,9 +44,10 @@ namespace jjyou {
 
 			/***********************************************************************
 			 * @enum	QueueType
-			 * @brief	Enum used to determine the queue type. This is defined as
-			 *			C enum instead of C++ enum class so that you can directly
-			 *			use it to index into the queue array.
+			 * @brief	Enum used to determine the queue type.
+			 *
+			 *			The enum is defined as C enum instead of C++ enum class
+			 *			so that you can directly use it to index into an array.
 			 ***********************************************************************/
 			enum QueueType : std::size_t {
 				Main,				/**< Queue family that supports graphics, transfer and compute. Guaranteed to be available. */
@@ -485,23 +486,14 @@ namespace jjyou {
 			}
 
 			/** @brief	Set debug messenger. This will enable the validation layer.
-			  * @param	messageSeverity_		Message severity.
-			  * @param	messageType_			Message type.
-			  * @param	pfnUserCallback_		Callback function.
-			  * @param	pUserData_				User data to send to the callback function.
+			  * @param	debugUtilsMessengerCreateInfo_	Creation information structure of the debug messenger.
 			  */
 			ContextBuilder& setDebugUtilsMessenger(
-				::vk::DebugUtilsMessageSeverityFlagsEXT messageSeverity_,
-				::vk::DebugUtilsMessageTypeFlagsEXT messageType_,
-				PFN_vkDebugUtilsMessengerCallbackEXT pfnUserCallback_,
-				void* pUserData_ = nullptr
+				const ::vk::DebugUtilsMessengerCreateInfoEXT& debugUtilsMessengerCreateInfo_
 			) {
 				this->_enableValidationLayer = true;
 				this->_enableDebugUtilsMessenger = true;
-				this->_debugUtilsMessengerInfo.messageSeverity = messageSeverity_;
-				this->_debugUtilsMessengerInfo.messageType = messageType_;
-				this->_debugUtilsMessengerInfo.pfnUserCallback = pfnUserCallback_;
-				this->_debugUtilsMessengerInfo.pUserData = pUserData_;
+				this->_debugUtilsMessengerCreateInfo = debugUtilsMessengerCreateInfo_;
 				return *this;
 			}
 
@@ -512,10 +504,11 @@ namespace jjyou {
 			  */
 			ContextBuilder& useDefaultDebugUtilsMessenger(void) {
 				this->setDebugUtilsMessenger(
-					::vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | ::vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
-					::vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | ::vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | ::vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance,
-					ContextBuilder::defaultDebugCallback,
-					nullptr
+					::vk::DebugUtilsMessengerCreateInfoEXT()
+					.setMessageSeverity(::vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | ::vk::DebugUtilsMessageSeverityFlagBitsEXT::eError)
+					.setMessageType(::vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | ::vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | ::vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance)
+					.setPfnUserCallback(ContextBuilder::defaultDebugCallback)
+					.setPUserData(nullptr)
 				);
 				return *this;
 			}
@@ -622,8 +615,8 @@ namespace jjyou {
 			  * will query the surface support and ensure that the main queue can
 			  * present all the surfaces.
 			  */
-			ContextBuilder& addSurface(const ::vk::SurfaceKHR& surface_) {
-				this->_surfaces.push_back(surface_);
+			ContextBuilder& addSurface(const ::vk::raii::SurfaceKHR& surface_) {
+				this->_surfaces.push_back(*surface_);
 				return *this;
 			}
 
@@ -681,12 +674,7 @@ namespace jjyou {
 			std::set<std::string> _enableLayers = {};
 			std::set<std::string> _enableInstanceExtensions = {};
 			bool _enableDebugUtilsMessenger = false;
-			struct {
-				::vk::DebugUtilsMessageSeverityFlagsEXT messageSeverity;
-				::vk::DebugUtilsMessageTypeFlagsEXT messageType;
-				PFN_vkDebugUtilsMessengerCallbackEXT pfnUserCallback;
-				void* pUserData;
-			} _debugUtilsMessengerInfo = {};
+			::vk::DebugUtilsMessengerCreateInfoEXT _debugUtilsMessengerCreateInfo = {};
 
 			// Physical device selection
 			std::set<std::string> _enableDeviceExtensions = {};
@@ -743,33 +731,24 @@ namespace jjyou {
 				std::back_inserter(enableInstanceExtensions),
 				[](const std::string& s) { return s.c_str(); }
 			);
-			::vk::ApplicationInfo applicationInfo(
-				this->_applicationName.c_str(),
-				this->_applicationVersion,
-				this->_engineName.c_str(),
-				this->_engineVersion,
-				this->_apiVersion
-			);
-			::vk::DebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo(
-				::vk::DebugUtilsMessengerCreateFlagsEXT(0U),
-				this->_debugUtilsMessengerInfo.messageSeverity,
-				this->_debugUtilsMessengerInfo.messageType,
-				this->_debugUtilsMessengerInfo.pfnUserCallback,
-				this->_debugUtilsMessengerInfo.pUserData
-			);
-			::vk::InstanceCreateInfo instanceCreateInfo(
-				::vk::InstanceCreateFlags(0U),
-				&applicationInfo,
-				enableLayers,
-				enableInstanceExtensions
-			);
+			::vk::ApplicationInfo applicationInfo = ::vk::ApplicationInfo()
+				.setPApplicationName(this->_applicationName.c_str())
+				.setApplicationVersion(this->_applicationVersion)
+				.setPEngineName(this->_engineName.c_str())
+				.setEngineVersion(this->_engineVersion)
+				.setApiVersion(this->_apiVersion);
+			::vk::InstanceCreateInfo instanceCreateInfo = ::vk::InstanceCreateInfo()
+				.setFlags(::vk::InstanceCreateFlags(0))
+				.setPApplicationInfo(&applicationInfo)
+				.setPEnabledLayerNames(enableLayers)
+				.setPEnabledExtensionNames(enableInstanceExtensions);
 			if (this->_enableDebugUtilsMessenger)
-				instanceCreateInfo.setPNext(&debugUtilsMessengerCreateInfo);
+				instanceCreateInfo.setPNext(&this->_debugUtilsMessengerCreateInfo);
 			context_._instance = ::vk::raii::Instance(context_._context, instanceCreateInfo);
 			context_._enabledLayers = std::move(enableLayerSet);
 			context_._enabledInstanceExtensions = std::move(enableInstanceExtensionSet);
 			if (this->_enableDebugUtilsMessenger) {
-				context_._debugUtilsMessenger = ::vk::raii::DebugUtilsMessengerEXT(context_._instance, debugUtilsMessengerCreateInfo);
+				context_._debugUtilsMessenger = ::vk::raii::DebugUtilsMessengerEXT(context_._instance, this->_debugUtilsMessengerCreateInfo);
 			}
 		}
 
@@ -827,11 +806,11 @@ namespace jjyou {
 			float queuePriority = 1.0f;
 			for (std::size_t i = 0; i < Context::QueueType::NumQueueTypes; ++i) {
 				if (context_._queueFamilyIndices[i].has_value()) {
-					deviceQueueCreateInfos.emplace_back(
-						::vk::DeviceQueueCreateFlags{ 0U },
-						*context_._queueFamilyIndices[i],
-						1U,
-						&queuePriority
+					deviceQueueCreateInfos.push_back(
+						::vk::DeviceQueueCreateInfo()
+						.setFlags(::vk::DeviceQueueCreateFlags(0))
+						.setQueueFamilyIndex(*context_._queueFamilyIndices[i])
+						.setQueuePriorities(queuePriority)
 					);
 				}
 			}
@@ -849,13 +828,12 @@ namespace jjyou {
 				std::back_inserter(enableDeviceExtensions),
 				[](const std::string& s) { return s.c_str(); }
 			);
-			::vk::DeviceCreateInfo deviceCreateInfo(
-				::vk::DeviceCreateFlags{ 0U },
-				deviceQueueCreateInfos,
-				enableLayers,
-				enableDeviceExtensions,
-				&context_._enabledDeviceFeatures
-			);
+			::vk::DeviceCreateInfo deviceCreateInfo = ::vk::DeviceCreateInfo()
+				.setFlags(::vk::DeviceCreateFlags(0))
+				.setQueueCreateInfos(deviceQueueCreateInfos)
+				.setPEnabledLayerNames(enableLayers)
+				.setPEnabledExtensionNames(enableDeviceExtensions)
+				.setPEnabledFeatures(&context_._enabledDeviceFeatures);
 			context_._device = ::vk::raii::Device(context_._physicalDevice, deviceCreateInfo);
 			for (std::size_t i = 0; i < Context::QueueType::NumQueueTypes; ++i) {
 				if (context_._queueFamilyIndices[i].has_value()) {

@@ -9,6 +9,7 @@
 #ifndef jjyou_vk_Vulkan_hpp
 #define jjyou_vk_Vulkan_hpp
 
+#define JJYOU_USE_VULKAN
 #include <vulkan/vulkan_raii.hpp>
 #include "Context.hpp"
 #include "Swapchain.hpp"

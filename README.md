@@ -47,12 +47,27 @@ The library is header-only. All classes and functions are defined in the namespa
 
   For developing applications based on Vulkan. It provides wrapper classes that wrap Vulkan objects to simply the verbose Vulkan initialization process.
   
-  - `Instance`, `InstanceBuilder`
-  - `PhysicalDevice`, `PhysicalDeviceSelector`
-  - `Device`, `DeviceBuilder`
+  - `Context`, `ContextBuilder`
+  
+    A context includes Vulkan instance, physical device, queue family indices, device, queues. The context uses three queues: main (graphics+present), compute (dedicate compute), and transfer (dedicate transfer).
+  
+  - `VmaAllocation`, `VmaAllocatir`
+  
+    These two classes are C++ RAII wrappers for [Vulkan Memory Allocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) library.
+  
   - `Swapchain`, `SwapchainBuilder`
-  - `Memory`, `MemoryAllocator`
-  - `Texture2D`
+  
+  - Legacy:
+  
+    - `Instance`, `InstanceBuilder`
+  
+    - `PhysicalDevice`, `PhysicalDeviceSelector`
+  
+    - `Device`, `DeviceBuilder`
+  
+    - `Memory`, `MemoryAllocator`
+  
+    - `Texture2D`
   
 - `vis`
 

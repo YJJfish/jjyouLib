@@ -8,6 +8,10 @@
 #ifndef jjyou_glsl_transform_hpp
 #define jjyou_glsl_transform_hpp
 
+#if !defined(JJYOU_USE_OPENGL) && !defined(JJYOU_USE_VULKAN)
+static_assert(0, "Please specify the API you use. E.g. define JJYOU_USE_OPENGL or JJYOU_USE_VULKAN");
+#endif
+
 #include <cmath>
 #include <numbers>
 
@@ -87,8 +91,7 @@ namespace jjyou {
 			return res;
 		}
 
-		/** @brief	Get perspective camera projection matrix
-		  *			according to y fov, aspect ratio, near clipping plane and far clipping plane.
+		/** @brief	Get perspective camera projection matrix.
 		  * @param	yFov		Field of view in y direction.
 		  * @param	aspectRatio	Aspect ratio (width / height).
 		  * @param	zNear		Near clipping plane.
@@ -119,8 +122,7 @@ namespace jjyou {
 #endif
 		}
 
-		/** @brief	Get orthographic camera projection matrix
-		  *			according to y fov, aspect ratio, near clipping plane and far clipping plane.
+		/** @brief	Get orthographic camera projection matrix.
 		  * @param	yFov		Field of view in y direction.
 		  * @param	aspectRatio	Aspect ratio (width / height).
 		  * @param	zNear		Near clipping plane.
@@ -145,6 +147,24 @@ namespace jjyou {
 			res[3][3] = static_cast<T>(1.0);
 			return res;
 #endif
+		}
+
+		/** @brief	Get pinhole camera projection matrix (fx=fy=f, cx=width/2, cy=height/2).
+		  * @param	yFov		Field of view in y direction.
+		  * @param	width		Image width.
+		  * @param	height		Image height.
+		  * @return	3x3 pinhole projection matrix.
+		  */
+		template <class T, class U> mat<T, 3, 3> pinhole(T yFov, U width, U height) {
+			mat<T, 3, 3> res;
+			T tanHalfYFov = std::tan(yFov / static_cast<T>(2.0));
+			T f = static_cast<T>(1.0) / tanHalfYFov * static_cast<T>(height) / static_cast<T>(2.0);
+			res[0][0] = f; // fx
+			res[1][1] = f; // fy
+			res[2][0] = static_cast<T>(width) / static_cast<T>(2.0); // cx
+			res[2][1] = static_cast<T>(height) / static_cast<T>(2.0); // cy
+			res[2][2] = static_cast<T>(1.0);
+			return res;
 		}
 
 	}

@@ -24,12 +24,12 @@ namespace jjyou {
 
 		template <class T, int Cols, int Rows> inline constexpr mat<T, Cols, Rows> ones(void) {
 			mat<T, Cols, Rows> res;
-			res += static_cast<T>(1.0f);
+			res += static_cast<T>(1.0);
 			return res;
 		}
 
 		template <class T, int Length> inline constexpr vec<T, Length> ones(void) {
-			return vec<T, Length>(static_cast<T>(1.0f));
+			return vec<T, Length>(static_cast<T>(1.0));
 		}
 
 		template <class T, int Length> inline constexpr vec<T, Length> max(const vec<T, Length>& v1, const vec<T, Length>& v2) {

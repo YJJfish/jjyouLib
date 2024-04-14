@@ -145,7 +145,7 @@ namespace jjyou {
 			  * @param	context_	The Vulkan context.
 			  * @param	surface_	The Vulkan surface.
 			  */
-			SwapchainBuilder(const Context& context_, const ::vk::SurfaceKHR& surface_) : _pContext(&context_), _surface(surface_) {}
+			SwapchainBuilder(const Context& context_, const ::vk::raii::SurfaceKHR& surface_) : _pContext(&context_), _surface(*surface_) {}
 
 			/** @brief	Set requested surface format.
 			  * @param	format_		Surface format.
@@ -255,24 +255,22 @@ namespace jjyou {
 				std::uint32_t minImageCount = capabilities.minImageCount + 1;
 				if (capabilities.maxImageCount > 0 && minImageCount > capabilities.maxImageCount)
 					minImageCount = capabilities.maxImageCount;
-				::vk::SwapchainCreateInfoKHR swapchainCreateInfo(
-					::vk::SwapchainCreateFlagsKHR(0U),
-					this->_surface,
-					minImageCount,
-					surfaceFormat.format,
-					surfaceFormat.colorSpace,
-					extent,
-					1,
-					::vk::ImageUsageFlagBits::eColorAttachment,
-					::vk::SharingMode::eExclusive,
-					1,
-					&*this->_pContext->queueFamilyIndex(Context::QueueType::Main),
-					capabilities.currentTransform,
-					::vk::CompositeAlphaFlagBitsKHR::eOpaque,
-					presentMode,
-					VK_TRUE,
-					*oldSwapchain_._swapchain
-				);
+				::vk::SwapchainCreateInfoKHR swapchainCreateInfo = ::vk::SwapchainCreateInfoKHR()
+					.setFlags(::vk::SwapchainCreateFlagsKHR(0U))
+					.setSurface(this->_surface)
+					.setMinImageCount(minImageCount)
+					.setImageFormat(surfaceFormat.format)
+					.setImageColorSpace(surfaceFormat.colorSpace)
+					.setImageExtent(extent)
+					.setImageArrayLayers(1)
+					.setImageUsage(::vk::ImageUsageFlagBits::eColorAttachment)
+					.setImageSharingMode(::vk::SharingMode::eExclusive)
+					.setQueueFamilyIndices(*this->_pContext->queueFamilyIndex(Context::QueueType::Main))
+					.setPreTransform(capabilities.currentTransform)
+					.setCompositeAlpha(::vk::CompositeAlphaFlagBitsKHR::eOpaque)
+					.setPresentMode(presentMode)
+					.setClipped(VK_TRUE)
+					.setOldSwapchain(*oldSwapchain_._swapchain);
 				Swapchain swapchain{nullptr};
 				swapchain._pContext = this->_pContext;
 				swapchain._surface = this->_surface;
@@ -283,26 +281,15 @@ namespace jjyou {
 				swapchain._images = swapchain._swapchain.getImages();
 				swapchain._numImages = static_cast<std::uint32_t>(swapchain._images.size());
 				swapchain._imageViews.reserve(swapchain._images.size());
+				::vk::ImageViewCreateInfo imageViewCreateInfo = ::vk::ImageViewCreateInfo()
+					.setFlags(::vk::ImageViewCreateFlags(0))
+					.setImage(nullptr)
+					.setViewType(::vk::ImageViewType::e2D)
+					.setFormat(swapchain._surfaceFormat.format)
+					.setComponents(::vk::ComponentMapping(::vk::ComponentSwizzle::eIdentity, ::vk::ComponentSwizzle::eIdentity, ::vk::ComponentSwizzle::eIdentity, ::vk::ComponentSwizzle::eIdentity))
+					.setSubresourceRange(::vk::ImageSubresourceRange(::vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
 				for (std::size_t i = 0; i < swapchain._images.size(); ++i) {
-					::vk::ImageViewCreateInfo imageViewCreateInfo(
-						::vk::ImageViewCreateFlagBits(0U),
-						swapchain._images[i],
-						::vk::ImageViewType::e2D,
-						swapchain._surfaceFormat.format,
-						::vk::ComponentMapping(
-							::vk::ComponentSwizzle::eIdentity,
-							::vk::ComponentSwizzle::eIdentity,
-							::vk::ComponentSwizzle::eIdentity,
-							::vk::ComponentSwizzle::eIdentity
-						),
-						::vk::ImageSubresourceRange(
-							::vk::ImageAspectFlagBits::eColor,
-							0,
-							1,
-							0,
-							1
-						)
-					);
+					imageViewCreateInfo.setImage(swapchain._images[i]);
 					swapchain._imageViews.emplace_back(this->_pContext->device(), imageViewCreateInfo);
 				}
 				oldSwapchain_.~Swapchain();

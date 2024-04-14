@@ -28,7 +28,7 @@ namespace jjyou {
 
 			Texture2D(const Texture2D&) = delete;
 
-			Texture2D(Texture2D&& other) :
+			Texture2D(Texture2D&& other) noexcept :
 				_pContext(other._pContext),
 				_extent(other._extent),
 				_numLayers(other._numLayers),

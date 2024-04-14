@@ -55,7 +55,7 @@ namespace jjyou {
 			//@{
 			constexpr mat(void) : data() {}
 			mat(const mat& m) : data(m.data) {}
-			mat(mat&& m) : data(std::move(m.data)) {}
+			mat(mat&& m) noexcept : data(std::move(m.data)) {}
 
 			/** @brief	Construct from another matrix of different size.
 			  * 

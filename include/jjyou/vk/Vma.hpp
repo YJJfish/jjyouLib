@@ -62,7 +62,7 @@ namespace jjyou {
 
 			/** @brief	Move constructor.
 			  */
-			VmaAllocator(VmaAllocator&& other_) : _allocator(other_._allocator) {
+			VmaAllocator(VmaAllocator&& other_) noexcept : _allocator(other_._allocator) {
 				other_._allocator = nullptr;
 			}
 
@@ -72,7 +72,7 @@ namespace jjyou {
 
 			/** @brief	Move assignment.
 			  */
-			VmaAllocator& operator=(VmaAllocator&& other_) {
+			VmaAllocator& operator=(VmaAllocator&& other_) noexcept {
 				if (&other_ != this) {
 					this->~VmaAllocator();
 					this->_allocator = other_._allocator;
@@ -136,7 +136,7 @@ namespace jjyou {
 
 			/** @brief	Move constructor.
 			  */
-			VmaAllocation(VmaAllocation&& other_) : _allocator(other_._allocator), _allocation(other_._allocation) {
+			VmaAllocation(VmaAllocation&& other_) noexcept : _allocator(other_._allocator), _allocation(other_._allocation) {
 				other_._allocator = nullptr;
 				other_._allocation = nullptr;
 			}
@@ -147,7 +147,7 @@ namespace jjyou {
 
 			/** @brief	Move assignment.
 			  */
-			VmaAllocation& operator=(VmaAllocation&& other_) {
+			VmaAllocation& operator=(VmaAllocation&& other_) noexcept {
 				if (&other_ != this) {
 					this->~VmaAllocation();
 					this->_allocator = other_._allocator;

@@ -99,7 +99,7 @@ namespace jjyou {
 			vec_base(const vec_base& v) : data(v.data) {}
 			vec_base(vec_base&& v) : data(std::move(v.data)) {}
 			vec_base& operator=(const vec_base& v) { this->data = v.data; return *this; }
-			vec_base& operator=(vec_base&& v) { this->data = std::move(v.data); return *this; }
+			vec_base& operator=(vec_base&& v) noexcept { this->data = std::move(v.data); return *this; }
 		public:
 			union {
 				std::array<T, 4> data;
@@ -257,7 +257,7 @@ namespace jjyou {
 		template <class T, int Length> inline vec<T, Length> operator-(const vec<T, Length>& v) {
 			vec<T, Length> ret;
 			for (int i = 0; i < Length; ++i)
-				ret.data[i] = -v.data[i];
+				ret.data[i] = static_cast<T>(0.0) - v.data[i];
 			return ret;
 		}
 		template <class T, int Length> inline vec<T, Length> operator+(const vec<T, Length>& v, T s) {

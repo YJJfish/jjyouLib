@@ -92,7 +92,7 @@ namespace jjyou {
 					this->_enabledDeviceExtensions = std::move(other_._enabledDeviceExtensions);
 					this->_queueFamilyIndices = other_._queueFamilyIndices;
 					this->_device = std::move(other_._device);
-					this->_queues = other_._queues;
+					this->_queues = std::move(other_._queues);
 				}
 				return *this;
 			}

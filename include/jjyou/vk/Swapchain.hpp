@@ -278,7 +278,13 @@ namespace jjyou {
 				swapchain._surfaceFormat = surfaceFormat;
 				swapchain._presentMode = presentMode;
 				swapchain._extent = extent;
-				swapchain._images = swapchain._swapchain.getImages();
+				{
+					// In some older Vulkan versions, `getImages` returns `std::vector<VkImage>` instead of `std::vector<vk::Image>`
+					auto images = swapchain._swapchain.getImages();
+					swapchain._images.reserve(images.size());
+					for (std::size_t i = 0; i < images.size(); ++i)
+						swapchain._images.emplace_back(images[i]);
+				}
 				swapchain._numImages = static_cast<std::uint32_t>(swapchain._images.size());
 				swapchain._imageViews.reserve(swapchain._images.size());
 				::vk::ImageViewCreateInfo imageViewCreateInfo = ::vk::ImageViewCreateInfo()

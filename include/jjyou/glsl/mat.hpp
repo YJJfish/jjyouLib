@@ -347,11 +347,11 @@ namespace jjyou {
 }
 
 template <class T, int Cols, int Rows>
-struct ::std::hash<::jjyou::glsl::mat<T, Cols, Rows>> {
-	using argument_type = ::jjyou::glsl::mat<T, Cols, Rows>;
+struct std::hash<jjyou::glsl::mat<T, Cols, Rows>> {
+	using argument_type = jjyou::glsl::mat<T, Cols, Rows>;
 	using result_type = size_t;
 	result_type operator()(argument_type const& key) const {
-		static const ::std::hash<T> h;
+		static const std::hash<T> h;
 		result_type ret = 0;
 		for (int i = 0; i < Cols * Rows; ++i)
 			ret ^= h(key[i]) + 0x9e3779b9 + (ret << 6) + (ret >> 2);

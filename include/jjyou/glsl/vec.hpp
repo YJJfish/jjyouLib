@@ -348,11 +348,11 @@ namespace jjyou {
 }
 
 template <class T, int Length>
-struct ::std::hash<::jjyou::glsl::vec<T, Length>> {
-	using argument_type = ::jjyou::glsl::vec<T, Length>;
+struct std::hash<jjyou::glsl::vec<T, Length>> {
+	using argument_type = jjyou::glsl::vec<T, Length>;
 	using result_type = size_t;
 	result_type operator()(argument_type const& key) const {
-		static const ::std::hash<T> h;
+		static const std::hash<T> h;
 		result_type ret = 0;
 		for (int i = 0; i < Length; ++i)
 			ret ^= h(key[i]) + 0x9e3779b9 + (ret << 6) + (ret >> 2);

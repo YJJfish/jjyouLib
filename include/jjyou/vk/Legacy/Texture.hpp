@@ -5,8 +5,6 @@
  * @brief	This file implements Texture2D class.
 ***********************************************************************/
 
-#include "PhysicalDevice.hpp"
-#include "Device.hpp"
 #include "Memory.hpp"
 #include "utils.hpp"
 
@@ -24,13 +22,35 @@ namespace jjyou {
 
 			/** @brief	Destructor.
 			  */
-			~Texture2D(void) {}
+			~Texture2D(void) {
+				this->destroy();
+			}
+
+			Texture2D(const Texture2D&) = delete;
+
+			Texture2D(Texture2D&& other) noexcept :
+				_pContext(other._pContext),
+				_extent(other._extent),
+				_numLayers(other._numLayers),
+				_mipLevels(other._mipLevels),
+				_format(other._format),
+				_pAllocator(other._pAllocator),
+				_image(other._image),
+				_imageMemory(std::move(other._imageMemory)),
+				_imageView(other._imageView),
+				_sampler(other._sampler)
+			{
+				other._pContext = nullptr;
+			}
+
+			/** @brief	Check whether the texture is in a valid state
+			  */
+			bool has_value(void) const { return (this->_pContext != nullptr); }
 
 			/** @brief	Create a texture.
 			  */
 			void create(
-				const PhysicalDevice& physicalDevice,
-				const Device& device,
+				const Context& context,
 				MemoryAllocator& allocator,
 				VkCommandPool graphicsCommandPool,
 				VkCommandPool transferCommandPool,
@@ -42,7 +62,7 @@ namespace jjyou {
 				bool cubeMap = false,
 				VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT
 			){
-				this->_pDevice = &device;
+				this->_pContext = &context;
 				this->_pAllocator = &allocator;
 				this->_extent = extent;
 				this->_numLayers = (cubeMap ? 6 : 1);
@@ -116,8 +136,8 @@ namespace jjyou {
 				default:
 					JJYOU_VK_UTILS_THROW(VK_ERROR_FORMAT_NOT_SUPPORTED);
 				}
-				std::uint32_t transferQueueFamily = *this->context.queueFamilyIndex(jjyou::vk::Context::QueueType::Transfer);
-				std::uint32_t graphicsQueueFamily = *physicalDevice.graphicsQueueFamily();
+				std::uint32_t transferQueueFamily = *this->_pContext->queueFamilyIndex(jjyou::vk::Context::QueueType::Transfer);
+				std::uint32_t graphicsQueueFamily = *this->_pContext->queueFamilyIndex(jjyou::vk::Context::QueueType::Main);
 				// Create the image
 				VkImageCreateInfo imageInfo{
 					.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -140,21 +160,21 @@ namespace jjyou {
 					.pQueueFamilyIndices = &transferQueueFamily,
 					.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
 				};
-				JJYOU_VK_UTILS_CHECK(vkCreateImage(this->_pDevice->get(), &imageInfo, nullptr, &this->_image));
+				JJYOU_VK_UTILS_CHECK(vkCreateImage(*this->_pContext->device(), &imageInfo, nullptr, &this->_image));
 				VkMemoryRequirements imageMemoryRequirements;
-				vkGetImageMemoryRequirements(this->_pDevice->get(), this->_image, &imageMemoryRequirements);
+				vkGetImageMemoryRequirements(*this->_pContext->device(), this->_image, &imageMemoryRequirements);
 				VkMemoryAllocateInfo imageMemoryAllocInfo{
 					.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
 					.pNext = nullptr,
 					.allocationSize = imageMemoryRequirements.size,
-					.memoryTypeIndex = physicalDevice.findMemoryType(imageMemoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT).value()
+					.memoryTypeIndex = this->_pContext->findMemoryType(imageMemoryRequirements.memoryTypeBits, ::vk::MemoryPropertyFlagBits::eDeviceLocal).value()
 				};
 				JJYOU_VK_UTILS_CHECK(this->_pAllocator->allocate(&imageMemoryAllocInfo, this->_imageMemory));
-				vkBindImageMemory(this->_pDevice->get(), this->_image, this->_imageMemory.memory(), this->_imageMemory.offset());
+				vkBindImageMemory(*this->_pContext->device(), this->_image, this->_imageMemory.memory(), this->_imageMemory.offset());
 				// Create and begin transfer command buffer
 				VkCommandBuffer transferCommandBuffer, graphicsCommandBuffer;
 				// Transfer image layout
-				transferCommandBuffer = Texture2D::_beginCommandBuffer(this->_pDevice->get(), transferCommandPool);
+				transferCommandBuffer = Texture2D::_beginCommandBuffer(*this->_pContext->device(), transferCommandPool);
 				VkImageMemoryBarrier imageMemoryBarrier1{
 					.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 					.pNext = nullptr,
@@ -181,7 +201,7 @@ namespace jjyou {
 					0, nullptr,
 					1, &imageMemoryBarrier1
 				);
-				Texture2D::_endCommandBuffer(this->_pDevice->get(), transferCommandPool, transferCommandBuffer, *this->_pDevice->transferQueues(), nullptr, nullptr);
+				Texture2D::_endCommandBuffer(*this->_pContext->device(), transferCommandPool, transferCommandBuffer, **this->_pContext->queue(Context::QueueType::Transfer), nullptr, nullptr);
 				// Create a stagine buffer.
 				const VkDeviceSize maxBufferSize = elementSize * extent.width * extent.height * this->_numLayers;
 				VkBuffer stagingBuffer = nullptr;
@@ -196,17 +216,17 @@ namespace jjyou {
 					.queueFamilyIndexCount = 1U,
 					.pQueueFamilyIndices = &transferQueueFamily
 				};
-				JJYOU_VK_UTILS_CHECK(vkCreateBuffer(this->_pDevice->get(), &bufferInfo, nullptr, &stagingBuffer));
+				JJYOU_VK_UTILS_CHECK(vkCreateBuffer(*this->_pContext->device(), &bufferInfo, nullptr, &stagingBuffer));
 				VkMemoryRequirements stagingBufferMemoryRequirements;
-				vkGetBufferMemoryRequirements(this->_pDevice->get(), stagingBuffer, &stagingBufferMemoryRequirements);
+				vkGetBufferMemoryRequirements(*this->_pContext->device(), stagingBuffer, &stagingBufferMemoryRequirements);
 				VkMemoryAllocateInfo stagingBufferMemoryAllocInfo{
 					.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
 					.pNext = nullptr,
 					.allocationSize = stagingBufferMemoryRequirements.size,
-					.memoryTypeIndex = physicalDevice.findMemoryType(stagingBufferMemoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT).value()
+					.memoryTypeIndex = this->_pContext->findMemoryType(stagingBufferMemoryRequirements.memoryTypeBits, ::vk::MemoryPropertyFlagBits::eHostVisible | ::vk::MemoryPropertyFlagBits::eHostCoherent).value()
 				};
 				JJYOU_VK_UTILS_CHECK(this->_pAllocator->allocate(&stagingBufferMemoryAllocInfo, stagingBufferMemory));
-				vkBindBufferMemory(this->_pDevice->get(), stagingBuffer, stagingBufferMemory.memory(), stagingBufferMemory.offset());
+				vkBindBufferMemory(*this->_pContext->device(), stagingBuffer, stagingBufferMemory.memory(), stagingBufferMemory.offset());
 				this->_pAllocator->map(stagingBufferMemory);
 				// Copy data to image
 				VkExtent2D levelExtent = this->_extent;
@@ -218,7 +238,7 @@ namespace jjyou {
 					else
 						std::memcpy(stagingBufferMemory.mappedAddress(), mipData[m - 1U], bufferSize);
 					// Copy buffer to image
-					transferCommandBuffer = Texture2D::_beginCommandBuffer(this->_pDevice->get(), transferCommandPool);
+					transferCommandBuffer = Texture2D::_beginCommandBuffer(*this->_pContext->device(), transferCommandPool);
 					VkBufferImageCopy copyRegion{
 						.bufferOffset = 0,
 						.bufferRowLength = 0,
@@ -241,17 +261,17 @@ namespace jjyou {
 						}
 					};
 					vkCmdCopyBufferToImage(transferCommandBuffer, stagingBuffer, this->_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
-					Texture2D::_endCommandBuffer(this->_pDevice->get(), transferCommandPool, transferCommandBuffer, *this->_pDevice->transferQueues(), nullptr, nullptr);
+					Texture2D::_endCommandBuffer(*this->_pContext->device(), transferCommandPool, transferCommandBuffer, **this->_pContext->queue(Context::QueueType::Transfer), nullptr, nullptr);
 					levelExtent.width = std::max(levelExtent.width / 2U, 1U);
 					levelExtent.height = std::max(levelExtent.height / 2U, 1U);
 				}
 				// Destroy staging buffer
 				this->_pAllocator->unmap(stagingBufferMemory);
 				this->_pAllocator->free(stagingBufferMemory);
-				vkDestroyBuffer(this->_pDevice->get(), stagingBuffer, nullptr);
+				vkDestroyBuffer(*this->_pContext->device(), stagingBuffer, nullptr);
 				// Transfer image layout
 				if (transferQueueFamily != graphicsQueueFamily) {
-					transferCommandBuffer = Texture2D::_beginCommandBuffer(this->_pDevice->get(), transferCommandPool);
+					transferCommandBuffer = Texture2D::_beginCommandBuffer(*this->_pContext->device(), transferCommandPool);
 					VkImageMemoryBarrier imageMemoryBarrier2{
 						.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 						.pNext = nullptr,
@@ -278,8 +298,8 @@ namespace jjyou {
 						0, nullptr,
 						1, &imageMemoryBarrier2
 					);
-					Texture2D::_endCommandBuffer(this->_pDevice->get(), transferCommandPool, transferCommandBuffer, *this->_pDevice->transferQueues(), nullptr, nullptr);
-					graphicsCommandBuffer = Texture2D::_beginCommandBuffer(this->_pDevice->get(), graphicsCommandPool);
+					Texture2D::_endCommandBuffer(*this->_pContext->device(), transferCommandPool, transferCommandBuffer, **this->_pContext->queue(Context::QueueType::Transfer), nullptr, nullptr);
+					graphicsCommandBuffer = Texture2D::_beginCommandBuffer(*this->_pContext->device(), graphicsCommandPool);
 					VkImageMemoryBarrier imageMemoryBarrier3{
 						.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 						.pNext = nullptr,
@@ -306,10 +326,10 @@ namespace jjyou {
 						0, nullptr,
 						1, &imageMemoryBarrier3
 					);
-					Texture2D::_endCommandBuffer(this->_pDevice->get(), graphicsCommandPool, graphicsCommandBuffer, *this->_pDevice->graphicsQueues(), nullptr, nullptr);
+					Texture2D::_endCommandBuffer(*this->_pContext->device(), graphicsCommandPool, graphicsCommandBuffer, **this->_pContext->queue(Context::QueueType::Main), nullptr, nullptr);
 				}
 				else {
-					transferCommandBuffer = Texture2D::_beginCommandBuffer(this->_pDevice->get(), transferCommandPool);
+					transferCommandBuffer = Texture2D::_beginCommandBuffer(*this->_pContext->device(), transferCommandPool);
 					VkImageMemoryBarrier imageMemoryBarrier2{
 						.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 						.pNext = nullptr,
@@ -336,7 +356,7 @@ namespace jjyou {
 						0, nullptr,
 						1, &imageMemoryBarrier2
 					);
-					Texture2D::_endCommandBuffer(this->_pDevice->get(), transferCommandPool, transferCommandBuffer, *this->_pDevice->transferQueues(), nullptr, nullptr);
+					Texture2D::_endCommandBuffer(*this->_pContext->device(), transferCommandPool, transferCommandBuffer, **this->_pContext->queue(Context::QueueType::Transfer), nullptr, nullptr);
 				}
 				// Create the image view
 				VkImageViewCreateInfo viewInfo{
@@ -359,7 +379,7 @@ namespace jjyou {
 						.layerCount = this->_numLayers
 					}
 				};
-				JJYOU_VK_UTILS_CHECK(vkCreateImageView(this->_pDevice->get(), &viewInfo, nullptr, &this->_imageView));
+				JJYOU_VK_UTILS_CHECK(vkCreateImageView(*this->_pContext->device(), &viewInfo, nullptr, &this->_imageView));
 				// Create the sampler
 				VkSamplerCreateInfo samplerInfo{
 					.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
@@ -373,7 +393,7 @@ namespace jjyou {
 					.addressModeW = addressMode,
 					.mipLodBias = 0.0f,
 					.anisotropyEnable = VK_TRUE,
-					.maxAnisotropy = physicalDevice.deviceProperties().limits.maxSamplerAnisotropy,
+					.maxAnisotropy = this->_pContext->physicalDevice().getProperties().limits.maxSamplerAnisotropy,
 					.compareEnable = VK_FALSE,
 					.compareOp = VK_COMPARE_OP_ALWAYS,
 					.minLod = 0.0f,
@@ -381,32 +401,25 @@ namespace jjyou {
 					.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
 					.unnormalizedCoordinates = VK_FALSE,
 				};
-				JJYOU_VK_UTILS_CHECK(vkCreateSampler(this->_pDevice->get(), &samplerInfo, nullptr, &this->_sampler));
-			}
-
-			/** @brief	Check whether the class contains a valid texture.
-			  * @return `true` if not empty.
-			  */
-			bool has_value() const {
-				return (this->_pDevice != nullptr);
+				JJYOU_VK_UTILS_CHECK(vkCreateSampler(*this->_pContext->device(), &samplerInfo, nullptr, &this->_sampler));
 			}
 
 			/** @brief	Call the corresponding vkDestroyXXX function to destroy the wrapped instance.
 			  */
 			void destroy(void) {
-				if (this->_pDevice != nullptr) {
+				if (this->_pContext != nullptr) {
 					this->_pAllocator->free(this->_imageMemory);
 					this->_pAllocator = nullptr;
-					vkDestroySampler(this->_pDevice->get(), this->_sampler, nullptr);
+					vkDestroySampler(*this->_pContext->device(), this->_sampler, nullptr);
 					this->_sampler = nullptr;
-					vkDestroyImageView(this->_pDevice->get(), this->_imageView, nullptr);
+					vkDestroyImageView(*this->_pContext->device(), this->_imageView, nullptr);
 					this->_imageView = nullptr;
-					vkDestroyImage(this->_pDevice->get(), this->_image, nullptr);
+					vkDestroyImage(*this->_pContext->device(), this->_image, nullptr);
 					this->_image = nullptr;
 					this->_extent = { .width = 0, .height = 0 };
 					this->_mipLevels = 0;
 					this->_format = VK_FORMAT_UNDEFINED;
-					this->_pDevice = nullptr;
+					this->_pContext = nullptr;
 				}
 			}
 
@@ -447,7 +460,7 @@ namespace jjyou {
 
 		private:
 
-			const Device* _pDevice = nullptr;
+			const Context* _pContext = nullptr;
 			VkExtent2D _extent{};
 			std::uint32_t _numLayers = 0;
 			std::uint32_t _mipLevels = 0;

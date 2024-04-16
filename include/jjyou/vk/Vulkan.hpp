@@ -13,9 +13,6 @@
 #include <vulkan/vulkan_raii.hpp>
 #include "Context.hpp"
 #include "Swapchain.hpp"
-#include "Memory.hpp"
 #include "Vma.hpp"
-#include "Texture.hpp"
-#include "utils.hpp"
 
 #endif /* jjyou_vk_Vulkan_hpp */

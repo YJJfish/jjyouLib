@@ -447,7 +447,7 @@ namespace jjyou {
 			/** @brief	Enable a layer.
 			  * @note	If you have already called ContextBuilder::enableValidationLayer to enable
 			  *			the validation layer, "VK_LAYER_KHRONOS_validation" layer will be
-			  *			automatically enabled. You don't need to call this function to enable it again.
+			  *			automatically enabled.
 			  * @param	layerName_	The name of the layer.
 			  */
 			ContextBuilder& enableLayer(const std::string& layerName_) {
@@ -458,7 +458,7 @@ namespace jjyou {
 			/** @brief	Enable layers.
 			  * @note	If you have already called ContextBuilder::enableValidationLayer to enable
 			  *			the validation layer, "VK_LAYER_KHRONOS_validation" layer will be
-			  *			automatically enabled. You don't need to call this function to enable it again.
+			  *			automatically enabled.
 			  * @param	begin_	The begin iterator of a container of layers.
 			  * @param	end_	The end iterator of a container of layers.
 			  */
@@ -471,7 +471,9 @@ namespace jjyou {
 			/** @brief	Enable an instance extension.
 			  * @note	If you have already called ContextBuilder::setDebugUtilsMessenger to set
 			  *			the debug messenger, "VK_EXT_debug_utils" extension will be
-			  *			automatically enabled. You don't need to call this function to enable it again.
+			  *			automatically enabled.
+			  * @note	When compiled on MacOS, the portability extension "VK_KHR_portability_enumeration"
+			  *			will be automatically enabled.
 			  * @param	extensionName_	The name of the extension.
 			  */
 			ContextBuilder& enableInstanceExtension(const std::string& extensionName_) {
@@ -482,7 +484,9 @@ namespace jjyou {
 			/** @brief	Enable instance extensions.
 			  * @note	If you have already called ContextBuilder::setDebugUtilsMessenger to set
 			  *			the debug messenger, "VK_EXT_debug_utils" extension will be
-			  *			automatically added. You don't need to call this function to enable it again.
+			  *			automatically enabled.
+			  * @note	When compiled on MacOS, the portability extension "VK_KHR_portability_enumeration"
+			  *			will be automatically enabled.
 			  * @param	begin_	The begin iterator of a container of instance extensions.
 			  * @param	end_	The end iterator of a container of instance extensions.
 			  */
@@ -731,6 +735,10 @@ namespace jjyou {
 			if (this->_enableDebugUtilsMessenger) {
 				enableInstanceExtensionSet.insert(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 			}
+#ifdef __APPLE__
+			enableInstanceExtensionSet.insert(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+			enableInstanceExtensionSet.insert(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+#endif
 			std::vector<const char*> enableInstanceExtensions;
 			enableInstanceExtensions.reserve(enableInstanceExtensionSet.size());
 			std::transform(
@@ -744,8 +752,12 @@ namespace jjyou {
 				.setPEngineName(this->_engineName.c_str())
 				.setEngineVersion(this->_engineVersion)
 				.setApiVersion(this->_apiVersion);
+			::vk::InstanceCreateFlags instanceCreateFlags(0);
+#ifdef __APPLE__
+			instanceCreateFlags |= ::vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR;
+#endif
 			::vk::InstanceCreateInfo instanceCreateInfo = ::vk::InstanceCreateInfo()
-				.setFlags(::vk::InstanceCreateFlags(0))
+				.setFlags(instanceCreateFlags)
 				.setPApplicationInfo(&applicationInfo)
 				.setPEnabledLayerNames(enableLayers)
 				.setPEnabledExtensionNames(enableInstanceExtensions);
@@ -915,6 +927,9 @@ namespace jjyou {
 			if (!this->_headless) {
 				enableDeviceExtensionSet.insert(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 			}
+#ifdef __APPLE__
+			enableDeviceExtensionSet.insert(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
+#endif
 			std::vector<::vk::ExtensionProperties> availableDeviceExtensions = physicalDevice_.enumerateDeviceExtensionProperties();
 			for (const auto& requiredDeviceExtension : enableDeviceExtensionSet) {
 				for (const auto& availableDeviceExtension : availableDeviceExtensions)

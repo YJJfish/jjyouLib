@@ -711,7 +711,6 @@ namespace jjyou {
 	namespace vk {
 
 		void ContextBuilder::buildInstance(Context& context_) const {
-			context_.clear();
 			context_._headless = this->_headless;
 			context_._validation = this->_enableValidationLayer;
 			std::set<std::string> enableLayerSet = this->_enableLayers;

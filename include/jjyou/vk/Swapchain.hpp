@@ -53,7 +53,7 @@ namespace jjyou {
 			  */
 			Swapchain(Swapchain&& other) = default;
 
-			/** @brief	Explicitly clear the instance.
+			/** @brief	Explicitly clear the swapchain.
 			  */
 			void clear(void) {
 				this->~Swapchain();

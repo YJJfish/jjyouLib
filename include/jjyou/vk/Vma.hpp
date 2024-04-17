@@ -81,7 +81,7 @@ namespace jjyou {
 				return *this;
 			}
 
-			/** @brief	Clear.
+			/** @brief	Explicitly destroy the allocator.
 			  */
 			void clear(void) {
 				if (this->_allocator != nullptr) {
@@ -164,7 +164,7 @@ namespace jjyou {
 				return *this;
 			}
 
-			/** @brief	Destructor.
+			/** @brief	Explicitly destroy the allocation.
 			  */
 			void clear(void) {
 				if (this->_allocation != nullptr) {

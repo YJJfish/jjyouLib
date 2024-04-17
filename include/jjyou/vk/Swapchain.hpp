@@ -53,6 +53,12 @@ namespace jjyou {
 			  */
 			Swapchain(Swapchain&& other) = default;
 
+			/** @brief	Explicitly clear the instance.
+			  */
+			void clear(void) {
+				this->~Swapchain();
+			}
+
 			/** @brief	Destructor.
 			  */
 			~Swapchain(void) = default;
@@ -65,6 +71,7 @@ namespace jjyou {
 			  */
 			Swapchain& operator=(Swapchain&& other) noexcept {
 				if (this != &other) {
+					this->clear();
 					this->_pContext = other._pContext;
 					this->_surface = other._surface;
 					this->_swapchain = std::move(other._swapchain);
@@ -298,7 +305,7 @@ namespace jjyou {
 					imageViewCreateInfo.setImage(swapchain._images[i]);
 					swapchain._imageViews.emplace_back(this->_pContext->device(), imageViewCreateInfo);
 				}
-				oldSwapchain_.~Swapchain();
+				oldSwapchain_.clear();
 				return swapchain;
 			}
 

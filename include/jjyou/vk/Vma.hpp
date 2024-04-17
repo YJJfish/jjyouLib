@@ -74,20 +74,26 @@ namespace jjyou {
 			  */
 			VmaAllocator& operator=(VmaAllocator&& other_) noexcept {
 				if (&other_ != this) {
-					this->~VmaAllocator();
+					this->clear();
 					this->_allocator = other_._allocator;
 					other_._allocator = nullptr;
 				}
 				return *this;
 			}
 
-			/** @brief	Destructor.
+			/** @brief	Clear.
 			  */
-			~VmaAllocator(void) {
+			void clear(void) {
 				if (this->_allocator != nullptr) {
 					vmaDestroyAllocator(this->_allocator);
 					this->_allocator = nullptr;
 				}
+			}
+
+			/** @brief	Destructor.
+			  */
+			~VmaAllocator(void) {
+				this->clear();
 			}
 
 			/** @brief	Dereference operator.
@@ -149,7 +155,7 @@ namespace jjyou {
 			  */
 			VmaAllocation& operator=(VmaAllocation&& other_) noexcept {
 				if (&other_ != this) {
-					this->~VmaAllocation();
+					this->clear();
 					this->_allocator = other_._allocator;
 					this->_allocation = other_._allocation;
 					other_._allocator = nullptr;
@@ -160,12 +166,18 @@ namespace jjyou {
 
 			/** @brief	Destructor.
 			  */
-			~VmaAllocation(void) {
+			void clear(void) {
 				if (this->_allocation != nullptr) {
 					vmaFreeMemory(this->_allocator, this->_allocation);
 					this->_allocator = nullptr;
 					this->_allocation = nullptr;
 				}
+			}
+
+			/** @brief	Destructor.
+			  */
+			~VmaAllocation(void) {
+				this->clear();
 			}
 
 			/** @brief	Dereference operator.

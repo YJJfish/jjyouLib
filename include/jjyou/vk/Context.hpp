@@ -68,6 +68,12 @@ namespace jjyou {
 			  */
 			Context(Context&& other_) = default;
 
+			/** @brief	Explicitly clear the context.
+			  */
+			void clear(void) {
+				this->~Context();
+			}
+
 			/** @brief	Destructor.
 			  */
 			~Context(void) = default;
@@ -80,6 +86,7 @@ namespace jjyou {
 			  */
 			Context& operator=(Context&& other_) noexcept {
 				if (this != &other_) {
+					this->clear();
 					this->_headless = other_._headless;
 					this->_validation = other_._validation;
 					this->_context = std::move(other_._context);
@@ -704,6 +711,7 @@ namespace jjyou {
 	namespace vk {
 
 		void ContextBuilder::buildInstance(Context& context_) const {
+			context_.clear();
 			context_._headless = this->_headless;
 			context_._validation = this->_enableValidationLayer;
 			std::set<std::string> enableLayerSet = this->_enableLayers;

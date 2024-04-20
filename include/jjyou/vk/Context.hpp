@@ -730,14 +730,14 @@ namespace jjyou {
 			);
 			std::set<std::string> enableInstanceExtensionSet = this->_enableInstanceExtensions;
 			if (!this->_headless) {
-				enableInstanceExtensionSet.insert(VK_KHR_SURFACE_EXTENSION_NAME);
+				enableInstanceExtensionSet.insert("VK_KHR_surface");
 			}
 			if (this->_enableDebugUtilsMessenger) {
-				enableInstanceExtensionSet.insert(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+				enableInstanceExtensionSet.insert("VK_EXT_debug_utils");
 			}
 #ifdef __APPLE__
-			enableInstanceExtensionSet.insert(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
-			enableInstanceExtensionSet.insert(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+			enableInstanceExtensionSet.insert("VK_KHR_portability_enumeration");
+			enableInstanceExtensionSet.insert("VK_KHR_get_physical_device_properties2");
 #endif
 			std::vector<const char*> enableInstanceExtensions;
 			enableInstanceExtensions.reserve(enableInstanceExtensionSet.size());
@@ -925,10 +925,10 @@ namespace jjyou {
 			// Check extension support
 			std::set<std::string> enableDeviceExtensionSet = this->_enableDeviceExtensions;
 			if (!this->_headless) {
-				enableDeviceExtensionSet.insert(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+				enableDeviceExtensionSet.insert("VK_KHR_swapchain");
 			}
 #ifdef __APPLE__
-			enableDeviceExtensionSet.insert(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
+			enableDeviceExtensionSet.insert("VK_KHR_portability_subset");
 #endif
 			std::vector<::vk::ExtensionProperties> availableDeviceExtensions = physicalDevice_.enumerateDeviceExtensionProperties();
 			for (const auto& requiredDeviceExtension : enableDeviceExtensionSet) {
